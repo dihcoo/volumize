@@ -308,7 +308,7 @@ padding: 8px 12px 10px; border-top: none;
         <!-- Knob 1: Volume / Clarity -->
         <div class="knob-cell">
             <div class="knob-title">VOLUME<br>CLARITY</div>
-            <div class="knob-outer" id="knob-boost" data-val="35">
+            <div class="knob-outer" id="knob-boost" data-val="55">
                 <svg class="knob-svg" viewBox="0 0 82 82">
                     <!-- Track arc -->
                     <circle cx="41" cy="41" r="32" fill="none"
@@ -337,7 +337,7 @@ padding: 8px 12px 10px; border-top: none;
         <!-- Knob 2: Lo Contour -->
         <div class="knob-cell">
             <div class="knob-title">LO<br>CONTOUR</div>
-            <div class="knob-outer" id="knob-bass" data-val="30">
+            <div class="knob-outer" id="knob-bass"  data-val="35">
                 <svg class="knob-svg" viewBox="0 0 82 82">
                     <circle cx="41" cy="41" r="32" fill="none"
                         stroke="rgba(0,255,204,0.08)" stroke-width="4"
@@ -364,6 +364,16 @@ padding: 8px 12px 10px; border-top: none;
         <button class="btn primary" id="btn-capture">▶ CAPTURE</button>
         <button class="btn" id="btn-bypass">⊘ BYPASS</button>
     </div>
+    <!-- Shown only when mic input is active and headphones not yet confirmed -->
+    <button class="btn confirm-btn" id="btn-confirm"
+        onclick="confirmHeadphones()"
+        style="display:none; width:100%; margin-top:8px;
+               border-color:#ffaa00; color:#ffaa00;
+               -webkit-text-fill-color:#ffaa00;
+               box-shadow:0 0 16px rgba(255,170,0,0.3);
+               animation:blink 1s ease-in-out infinite;">
+        🎧 HEADPHONES PLUGGED IN · TAP TO CONFIRM
+    </button>
     <div class="source-chip" id="source-chip">NO SOURCE CONNECTED</div>
 </div>
 ```
@@ -646,15 +656,22 @@ function buildGraph(src){
     afsLo3.connect(loGain);
     loGain.connect(sumNode);
 
+    // ── Noise gate (only active on mic input) ───────────────────────────────
+    // Prevents processed audio from looping back through speakers
+    // Gate stays CLOSED (gain=0) until signal exceeds threshold
+    gateGain = audioCtx.createGain();
+    gateGain.gain.value = 0;  // default MUTED — opened by confirmHeadphones()
+
     // Output chain
     sumNode.connect(limiter);
     limiter.connect(masterGain);
-    masterGain.connect(analyser);
+    masterGain.connect(gateGain);
+    gateGain.connect(analyser);
     analyser.connect(audioCtx.destination);
 
     // Start both adaptive AFS notch trackers
-    startAFS_Mid();   // tracks 200Hz–7kHz for volume path
-    startAFS_Lo();    // tracks  60Hz–400Hz for lo contour path
+    startAFS_Mid();
+    startAFS_Lo();
 
     // Apply current knob values immediately
     applyBoost(getKnobVal('boost'));
@@ -671,41 +688,38 @@ function applyWaveshaper(drive){
     bbeWave.curve = curve;
 }
 
-// ── VOLUME/CLARITY: one-knob BBE882i(series) + FBQ1000(series) ║ AFS-2(parallel)
+// ── VOLUME/CLARITY: BBE882i (series) + FBQ1000 (series) ║ AFS-2 (parallel) ──
 function applyBoost(v){
     if(!audioCtx) return;
-    const dB  = v * 14;                     // 0 → +14 dB max
+    // 0 → +20 dB — genuinely noticeable volume increase
+    const dB  = v * 20;
     const lin = Math.pow(10, dB/20);
 
     // BBE 882i Hi-Definition stage
-    bbeHi.gain.value       = v * 8;         // 0 → +8 dB high shelf
-    bbePresence.gain.value = v * 6;         // 0 → +6 dB presence peak
-    applyWaveshaper(v * 0.5);               // harmonic saturation scales with boost
+    bbeHi.gain.value       = v * 10;     // 0 → +10 dB high shelf (air/presence)
+    bbePresence.gain.value = v * 8;      // 0 → +8 dB presence peak (clarity)
+    applyWaveshaper(v * 0.72);           // harmonic exciter — more aggressive
 
-    // FBQ1000: protective notches deepen as gain rises
-    // Allows more gain without feedback/resonance buildup
-    const nd = -(v * 3.5);
+    // FBQ1000: protective notches scale with gain
+    const nd = -(v * 4.5);
     fbqN1.gain.value = nd;
     fbqN2.gain.value = nd;
     fbqN3.gain.value = nd;
 
     // Gain match: series×0.5 + parallel×0.5 = full lin gain
-    // Neither path alone exceeds the ceiling before the limiter
     seriesGain.gain.value   = lin * 0.5;
     parallelGain.gain.value = lin * 0.5;
 }
 
-// ── LO CONTOUR: BBE Lo Contour emulation + AFS-2 live feedback killer ────────
+// ── LO CONTOUR: BBE Lo Contour + AFS-2 lo feedback killer ──────────────────
 function applyBass(v){
     if(!audioCtx) return;
-    loContour.gain.value = v * 11;          // 0 → +11 dB bass shelf
+    loContour.gain.value = v * 14;       // 0 → +14 dB bass shelf (punchy)
 
-    // AFS-2 lo feedback killer notch depth scales with bass boost
-    // More bass boost = deeper notches to prevent low-freq feedback loops
-    const nd = -(v * 4);
+    // AFS-2 lo feedback killer — deeper notches protect at high bass boost
+    const nd = -(v * 5);
     afsLo1.gain.value = nd;
     afsLo2.gain.value = nd;
-    // afsLo3 is adaptive — gain set by startAFS_Lo tracker
 }
 
 // ── Adaptive AFS-2 MID/HIGH tracker (200Hz–7kHz) — for volume parallel path ─
@@ -764,6 +778,9 @@ function applyBypass(bypassed){
     } else {
         applyBoost(getKnobVal('boost'));
         applyBass(getKnobVal('bass'));
+        // Restore gate state
+        if(gateGain && audioCtx && headphonesConfirmed)
+            gateGain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.05);
     }
 }
 
@@ -789,6 +806,92 @@ function startAFS(){
 function getContourFreq(){
     const w=Math.min(window.screen.width,window.screen.height);
     return w<400?200:w<768?165:120;
+}
+
+// ── Open output gate when user confirms headphones are plugged in ─────────────
+function confirmHeadphones(){
+    if(!audioCtx||!gateGain) return;
+    headphonesConfirmed=true;
+    gateGain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.05);
+    document.getElementById('btn-confirm').style.display='none';
+    chip.textContent='✓ HEADPHONES ACTIVE · PROCESSING';
+    chip.className='source-chip';
+    setStatus('ENHANCING · ACTIVE');
+    pill.className='status-pill active'; pill.textContent='LIVE';
+    startNoiseGate();
+}
+
+// ── Noise gate ────────────────────────────────────────────────────────────────
+// Cuts output to 0 during silence so mic can't pick up room sound
+// Fast open (8ms) / slower close (35ms) to avoid cutting speech
+function startNoiseGate(){
+    if(gateTimer) clearInterval(gateTimer);
+    gateTimer = setInterval(()=>{
+        if(!analyser||!isLive||!headphonesConfirmed) return;
+        const fd=new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(fd);
+        const sr=audioCtx.sampleRate, bins=fd.length;
+        const loB=Math.floor(300/(sr/2)*bins);
+        let sum=0, count=0;
+        for(let i=loB;i<bins;i++){ sum+=fd[i]*fd[i]; count++; }
+        const rms=Math.sqrt(sum/count)/255;
+        const atk=0.15, rel=0.05;
+        gateEnv=rms>gateEnv ? gateEnv*(1-atk)+rms*atk : gateEnv*(1-rel)+rms*rel;
+        const wantOpen=gateEnv>0.04;
+        if(wantOpen!==gateOpen){
+            gateOpen=wantOpen;
+            gateGain.gain.setTargetAtTime(
+                gateOpen?1.0:0.0, audioCtx.currentTime, gateOpen?0.008:0.035
+            );
+        }
+    }, 20);
+}
+
+// ── Open output gate (called when user confirms headphones plugged in) ────────
+function confirmHeadphones(){
+    if(!audioCtx||!gateGain) return;
+    headphonesConfirmed=true;
+    gateGain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.05);
+    document.getElementById('btn-confirm').style.display='none';
+    chip.textContent='✓ HEADPHONES CONFIRMED · AUDIO ACTIVE';
+    chip.className='source-chip';
+    setStatus('ENHANCING · ACTIVE');
+    pill.className='status-pill active'; pill.textContent='LIVE';
+    startNoiseGate();
+}
+
+// ── Noise gate — cuts output when signal drops below threshold ───────────────
+// Prevents feedback by killing output during silence (mic open to room)
+function startNoiseGate(){
+    if(gateTimer) clearInterval(gateTimer);
+    gateTimer = setInterval(()=>{
+        if(!analyser||!isLive||!headphonesConfirmed) return;
+        const fd = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(fd);
+        // RMS of mid/high bins (above 300Hz — avoids low-freq hum)
+        let sum=0, count=0;
+        const sr=audioCtx.sampleRate, bins=fd.length;
+        const loB=Math.floor(300/(sr/2)*bins);
+        for(let i=loB;i<bins;i++){ sum+=fd[i]*fd[i]; count++; }
+        const rms=Math.sqrt(sum/count)/255;
+
+        // Smooth envelope follower
+        const attack=0.15, release=0.05;
+        gateEnv = rms > gateEnv
+            ? gateEnv*(1-attack)+rms*attack
+            : gateEnv*(1-release)+rms*release;
+
+        const threshold=0.04; // open above ~4% RMS
+        const wantOpen=gateEnv>threshold;
+        if(wantOpen!==gateOpen){
+            gateOpen=wantOpen;
+            gateGain.gain.setTargetAtTime(
+                gateOpen?1.0:0.0,
+                audioCtx.currentTime,
+                gateOpen?0.008:0.035  // fast open, slightly slower close
+            );
+        }
+    }, 20); // check every 20ms
 }
 
 // ═══════════════════════════════════════════════════════
@@ -862,55 +965,27 @@ async function startCapture(){
 
         btnCapture.textContent='■ STOP';
         btnCapture.classList.add('live');
-        pill.className='status-pill active'; pill.textContent='LIVE';
-        setStatus('ENHANCING · ACTIVE');
+
+        if(isMicInput){
+            // Output MUTED until headphones confirmed — prevents feedback
+            pill.className='status-pill error'; pill.textContent='MUTED';
+            setStatus('PLUG IN HEADPHONES · TAP CONFIRM');
+            // On display media (tab/system audio) open gate immediately
+        } else {
+            // System / tab audio — no feedback risk, open gate immediately
+            if(gateGain && audioCtx)
+                gateGain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.05);
+            headphonesConfirmed=true;
+            pill.className='status-pill active'; pill.textContent='LIVE';
+            setStatus('ENHANCING · ACTIVE');
+        }
 
         // ── Feedback guard ────────────────────────────────────────────────────
         // Mic input can loop back through speakers. If RMS stays pegged high
         // for 3 consecutive checks (≈600ms), cut masterGain to break the loop.
         if(isMicInput){
             setStatus('⚠ HEADPHONES RECOMMENDED');
-            // Pre-emptively lower default boost for mic input to reduce loop risk
-            const safeBoost = Math.min(getKnobVal('boost'), 0.45);
-            document.getElementById('knob-boost').dataset.val = Math.round(safeBoost*100);
-            updateKnobUI('boost', Math.round(safeBoost*100));
-
-            let highCount = 0;
-            feedbackGuardTimer = setInterval(()=>{
-                if(!analyser||!isLive) return;
-                const fd = new Uint8Array(analyser.frequencyBinCount);
-                analyser.getByteFrequencyData(fd);
-                let sum=0; fd.forEach(v=>sum+=v);
-                const avg = sum/fd.length;
-                if(avg > 210){          // near-clip level sustained
-                    highCount++;
-                    if(highCount >= 3){ // 3 × 200ms = 600ms of feedback
-                        // Emergency gain cut
-                        if(masterGain){ masterGain.gain.linearRampToValueAtTime(0.0, audioCtx.currentTime+0.05); }
-                        if(loGain)    { loGain.gain.linearRampToValueAtTime(0.0, audioCtx.currentTime+0.05); }
-                        // Reset knobs to safe level
-                        document.getElementById('knob-boost').dataset.val='20';
-                        updateKnobUI('boost',20);
-                        setTimeout(()=>{
-                            if(masterGain&&audioCtx){
-                                masterGain.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime+0.15);
-                                applyBass(getKnobVal('bass')); // restore lo gain too
-                            }
-                        }, 200);
-                        highCount=0;
-                        setStatus('FEEDBACK CUT · REDUCE BOOST');
-                        pill.className='status-pill error'; pill.textContent='GUARD';
-                        setTimeout(()=>{
-                            if(isLive){
-                                pill.className='status-pill active'; pill.textContent='LIVE';
-                                setStatus('ENHANCING · ACTIVE');
-                            }
-                        },2000);
-                    }
-                } else {
-                    highCount = Math.max(0, highCount-1);
-                }
-            }, 200);
+        // Mic output stays MUTED — confirmHeadphones() opens the gate
         }
 
         // If stream track ends externally (e.g. user stops screen share)
@@ -932,8 +1007,10 @@ function stopCapture(){
     if(afsLoTimer){ clearInterval(afsLoTimer); afsLoTimer=null; }
     if(audioCtx){ audioCtx.close(); audioCtx=null; }
     analyser=null; sourceNode=null; isLive=false; isBypassed=false;
-    isMicInput=false;
+    isMicInput=false; headphonesConfirmed=false; gateEnv=0; gateOpen=false;
     if(feedbackGuardTimer){clearInterval(feedbackGuardTimer);feedbackGuardTimer=null;}
+    if(gateTimer){clearInterval(gateTimer);gateTimer=null;}
+    document.getElementById('btn-confirm').style.display='none';
     btnCapture.textContent='▶ CAPTURE';
     btnCapture.classList.remove('live');
     btnBypass.classList.remove('live'); btnBypass.textContent='⊘ BYPASS';
@@ -1038,9 +1115,9 @@ function bindKnob(id){
 
 bindKnob('boost');
 bindKnob('bass');
-// Set initial UI state
-updateKnobUI('boost',35);
-updateKnobUI('bass',30);
+// Set initial UI state — 55% boost = +11dB, immediately noticeable
+updateKnobUI('boost',55);
+updateKnobUI('bass',35);
 
 // ═══════════════════════════════════════════════════════
 //  DRAW LOOP — sphere + level meter
