@@ -525,105 +525,242 @@ let isLive=false, isBypassed=false, isMicInput=false;
 let feedbackGuardTimer=null;
 
 function buildGraph(src){
-    audioCtx    = new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100,latencyHint:'playback'});
-    analyser    = audioCtx.createAnalyser();
-    analyser.fftSize=2048; analyser.smoothingTimeConstant=0.82;
+    audioCtx     = new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100,latencyHint:'playback'});
 
-    sourceNode  = audioCtx.createMediaStreamSource(src);
+    analyser     = audioCtx.createAnalyser();
+    analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.82;
 
-    // ── LO CONTOUR (independent bass shelf, pre-chain) ──────────────────────
-    loContour   = audioCtx.createBiquadFilter();
-    loContour.type='lowshelf'; loContour.frequency.value=getContourFreq(); loContour.gain.value=0;
+    sourceNode   = audioCtx.createMediaStreamSource(src);
 
-    // ── SERIES: BBE 882i Definition stage ───────────────────────────────────
-    bbeHi       = audioCtx.createBiquadFilter();
-    bbeHi.type='highshelf'; bbeHi.frequency.value=3200; bbeHi.gain.value=0;
+    // ════════════════════════════════════════════════════════════════
+    //  VOLUME / CLARITY PATH
+    //  SERIES:   BBE 882i Hi-Definition → FBQ1000 protective notches
+    //  PARALLEL: DBX AFS-2 live feedback suppression
+    //  Gain-matched: series×0.5 + parallel×0.5 = full boost
+    // ════════════════════════════════════════════════════════════════
 
-    bbePresence = audioCtx.createBiquadFilter();
-    bbePresence.type='peaking'; bbePresence.frequency.value=5200; bbePresence.Q.value=0.85; bbePresence.gain.value=0;
+    // ── BBE 882i Hi-Definition (series) ──────────────────────────────────────
+    // 1. High shelf — BBE Definition (air + presence recovery)
+    bbeHi        = audioCtx.createBiquadFilter();
+    bbeHi.type   = 'highshelf'; bbeHi.frequency.value = 3200; bbeHi.gain.value = 0;
 
-    bbeWave     = audioCtx.createWaveShaper();
-    bbeWave.oversample='4x'; applyWaveshaper(0);
+    // 2. Upper presence peak — BBE harmonic recovery (~5.2kHz)
+    bbePresence  = audioCtx.createBiquadFilter();
+    bbePresence.type = 'peaking'; bbePresence.frequency.value = 5200;
+    bbePresence.Q.value = 0.85; bbePresence.gain.value = 0;
 
-    // ── FBQ1000 — protective dynamic notches ────────────────────────────────
-    fbqN1=audioCtx.createBiquadFilter(); fbqN1.type='notch'; fbqN1.frequency.value=400;  fbqN1.Q.value=10;
-    fbqN2=audioCtx.createBiquadFilter(); fbqN2.type='notch'; fbqN2.frequency.value=800;  fbqN2.Q.value=10;
-    fbqN3=audioCtx.createBiquadFilter(); fbqN3.type='notch'; fbqN3.frequency.value=2500; fbqN3.Q.value=10;
+    // 3. Harmonic exciter waveshaper — soft odd-harmonic saturation
+    //    Same psychoacoustic trick as the 882i: adds perceived loudness
+    //    without raising peak level
+    bbeWave      = audioCtx.createWaveShaper();
+    bbeWave.oversample = '4x';
+    applyWaveshaper(0);
 
-    seriesGain  = audioCtx.createGain(); seriesGain.gain.value=0.5;
+    // ── FBQ1000 protective notches (series, after BBE) ────────────────────────
+    // Depth scales with boost — lets you push harder without resonance buildup
+    fbqN1 = audioCtx.createBiquadFilter(); fbqN1.type='notch'; fbqN1.frequency.value=400;  fbqN1.Q.value=10;
+    fbqN2 = audioCtx.createBiquadFilter(); fbqN2.type='notch'; fbqN2.frequency.value=800;  fbqN2.Q.value=10;
+    fbqN3 = audioCtx.createBiquadFilter(); fbqN3.type='notch'; fbqN3.frequency.value=2500; fbqN3.Q.value=10;
 
-    // ── PARALLEL: DBX AFS-2 adaptive suppression ────────────────────────────
-    afsN1=audioCtx.createBiquadFilter(); afsN1.type='notch'; afsN1.frequency.value=630;  afsN1.Q.value=14;
-    afsN2=audioCtx.createBiquadFilter(); afsN2.type='notch'; afsN2.frequency.value=1250; afsN2.Q.value=14;
-    afsN3=audioCtx.createBiquadFilter(); afsN3.type='notch'; afsN3.frequency.value=3150; afsN3.Q.value=14;
+    seriesGain   = audioCtx.createGain(); seriesGain.gain.value = 0.5;
 
-    parallelGain = audioCtx.createGain(); parallelGain.gain.value=0.5;
+    // ── DBX AFS-2 parallel path (mid/high feedback suppression) ──────────────
+    // Two fixed notches at common mid-range resonance bands
+    // + one adaptive notch that tracks loudest peak 200Hz–7kHz every 500ms
+    afsN1 = audioCtx.createBiquadFilter(); afsN1.type='notch'; afsN1.frequency.value=630;  afsN1.Q.value=14;
+    afsN2 = audioCtx.createBiquadFilter(); afsN2.type='notch'; afsN2.frequency.value=1250; afsN2.Q.value=14;
+    afsN3 = audioCtx.createBiquadFilter(); afsN3.type='notch'; afsN3.frequency.value=3150; afsN3.Q.value=14; // adaptive
 
-    // ── SUM + BRICK WALL LIMITER −0.1 dBFS ─────────────────────────────────
-    sumNode     = audioCtx.createGain(); sumNode.gain.value=1.0;
+    parallelGain = audioCtx.createGain(); parallelGain.gain.value = 0.5;
 
-    limiter     = audioCtx.createDynamicsCompressor();
-    limiter.threshold.value=-0.1; limiter.knee.value=0;
-    limiter.ratio.value=20; limiter.attack.value=0.001; limiter.release.value=0.08;
+    // ════════════════════════════════════════════════════════════════
+    //  LO CONTOUR PATH (independent knob)
+    //  BBE 882i Lo Contour emulation (phase-corrected bass shelf)
+    //  → AFS-2 live feedback killer (tracks low-freq feedback 60–400Hz)
+    // ════════════════════════════════════════════════════════════════
 
-    masterGain  = audioCtx.createGain(); masterGain.gain.value=1.0;
+    // BBE Lo Contour — phase-corrected low shelf
+    // Frequency is device-adaptive (200Hz phone, 120Hz desktop/headphones)
+    loContour    = audioCtx.createBiquadFilter();
+    loContour.type = 'lowshelf'; loContour.frequency.value = getContourFreq(); loContour.gain.value = 0;
 
-    // ── ROUTING ─────────────────────────────────────────────────────────────
-    //  source → loContour ─┬─ bbeHi→bbePresence→bbeWave→fbq×3→seriesGain ─┐
-    //                      └─ afsN×3→parallelGain ──────────────────────────┤
-    //                                                               sumNode→limiter→master→analyser→dest
-    sourceNode.connect(loContour);
-    loContour.connect(bbeHi); bbeHi.connect(bbePresence); bbePresence.connect(bbeWave);
-    bbeWave.connect(fbqN1); fbqN1.connect(fbqN2); fbqN2.connect(fbqN3); fbqN3.connect(seriesGain);
+    // AFS-2 Lo Feedback Killer — adaptive notch tracking low-freq resonance
+    // Two fixed bass notches + one that hunts the loudest low-freq peak
+    afsLo1 = audioCtx.createBiquadFilter(); afsLo1.type='notch'; afsLo1.frequency.value=100; afsLo1.Q.value=8;
+    afsLo2 = audioCtx.createBiquadFilter(); afsLo2.type='notch'; afsLo2.frequency.value=200; afsLo2.Q.value=8;
+    afsLo3 = audioCtx.createBiquadFilter(); afsLo3.type='notch'; afsLo3.frequency.value=160; afsLo3.Q.value=8; // adaptive
+
+    loGain       = audioCtx.createGain(); loGain.gain.value = 0;
+
+    // ════════════════════════════════════════════════════════════════
+    //  SUM → BRICK-WALL LIMITER → MASTER
+    //  Hard ceiling at −0.1 dBFS — nothing gets through above this
+    // ════════════════════════════════════════════════════════════════
+    sumNode      = audioCtx.createGain(); sumNode.gain.value = 1.0;
+
+    limiter      = audioCtx.createDynamicsCompressor();
+    limiter.threshold.value = -0.1;  // −0.1 dBFS ceiling
+    limiter.knee.value      =  0.0;  // hard knee — no soft transition
+    limiter.ratio.value     = 20.0;  // near brick-wall
+    limiter.attack.value    =  0.001; // 1ms — catches transients immediately
+    limiter.release.value   =  0.05;  // 50ms — quick recovery
+
+    masterGain   = audioCtx.createGain(); masterGain.gain.value = 1.0;
+
+    // ════════════════════════════════════════════════════════════════
+    //  SIGNAL ROUTING
+    //
+    //  source ─┬─[SERIES]──  bbeHi→bbePresence→bbeWave
+    //          │              →fbqN1→fbqN2→fbqN3→seriesGain(×0.5) ──┐
+    //          │                                                      ├→ sumNode
+    //          ├─[PARALLEL]── afsN1→afsN2→afsN3→parallelGain(×0.5) ─┤
+    //          │                                                      │
+    //          └─[LO PATH]─── loContour→afsLo1→afsLo2→afsLo3       ─┘
+    //                          →loGain
+    //
+    //                              sumNode→limiter→masterGain→analyser→dest
+    // ════════════════════════════════════════════════════════════════
+
+    // Series branch (BBE→FBQ)
+    sourceNode.connect(bbeHi);
+    bbeHi.connect(bbePresence);
+    bbePresence.connect(bbeWave);
+    bbeWave.connect(fbqN1);
+    fbqN1.connect(fbqN2);
+    fbqN2.connect(fbqN3);
+    fbqN3.connect(seriesGain);
     seriesGain.connect(sumNode);
 
-    loContour.connect(afsN1); afsN1.connect(afsN2); afsN2.connect(afsN3); afsN3.connect(parallelGain);
+    // Parallel branch (AFS-2 mid/high)
+    sourceNode.connect(afsN1);
+    afsN1.connect(afsN2);
+    afsN2.connect(afsN3);
+    afsN3.connect(parallelGain);
     parallelGain.connect(sumNode);
 
-    sumNode.connect(limiter); limiter.connect(masterGain);
-    masterGain.connect(analyser); analyser.connect(audioCtx.destination);
+    // Lo Contour branch (BBE Lo + AFS-2 lo feedback killer)
+    sourceNode.connect(loContour);
+    loContour.connect(afsLo1);
+    afsLo1.connect(afsLo2);
+    afsLo2.connect(afsLo3);
+    afsLo3.connect(loGain);
+    loGain.connect(sumNode);
 
-    startAFS();
+    // Output chain
+    sumNode.connect(limiter);
+    limiter.connect(masterGain);
+    masterGain.connect(analyser);
+    analyser.connect(audioCtx.destination);
+
+    // Start both adaptive AFS notch trackers
+    startAFS_Mid();   // tracks 200Hz–7kHz for volume path
+    startAFS_Lo();    // tracks  60Hz–400Hz for lo contour path
+
+    // Apply current knob values immediately
     applyBoost(getKnobVal('boost'));
     applyBass(getKnobVal('bass'));
 }
 
+// ── BBE harmonic exciter waveshaper ──────────────────────────────────────────
 function applyWaveshaper(drive){
     const n=512, curve=new Float32Array(n);
     for(let i=0;i<n;i++){
         const x=(i*2/n)-1, k=drive*10;
-        curve[i]=k===0?x:(3*x-x*x*x*(k/3))/(2+k*x*x*0.5);
+        curve[i] = k===0 ? x : (3*x - x*x*x*(k/3)) / (2 + k*x*x*0.5);
     }
-    bbeWave.curve=curve;
+    bbeWave.curve = curve;
 }
 
-// ── One-knob BOOST (BBE + FBQ + AFS) ────────────────────────────────────────
+// ── VOLUME/CLARITY: one-knob BBE882i(series) + FBQ1000(series) ║ AFS-2(parallel)
 function applyBoost(v){
     if(!audioCtx) return;
-    const dB=v*14, lin=Math.pow(10,dB/20);
-    bbeHi.gain.value      = v*8;
-    bbePresence.gain.value= v*6;
-    applyWaveshaper(v*0.5);
-    const nd=-(v*3);
-    fbqN1.gain.value=nd; fbqN2.gain.value=nd; fbqN3.gain.value=nd;
-    seriesGain.gain.value   = lin*0.5;
-    parallelGain.gain.value = lin*0.5;
+    const dB  = v * 14;                     // 0 → +14 dB max
+    const lin = Math.pow(10, dB/20);
+
+    // BBE 882i Hi-Definition stage
+    bbeHi.gain.value       = v * 8;         // 0 → +8 dB high shelf
+    bbePresence.gain.value = v * 6;         // 0 → +6 dB presence peak
+    applyWaveshaper(v * 0.5);               // harmonic saturation scales with boost
+
+    // FBQ1000: protective notches deepen as gain rises
+    // Allows more gain without feedback/resonance buildup
+    const nd = -(v * 3.5);
+    fbqN1.gain.value = nd;
+    fbqN2.gain.value = nd;
+    fbqN3.gain.value = nd;
+
+    // Gain match: series×0.5 + parallel×0.5 = full lin gain
+    // Neither path alone exceeds the ceiling before the limiter
+    seriesGain.gain.value   = lin * 0.5;
+    parallelGain.gain.value = lin * 0.5;
 }
 
-// ── Lo Contour (independent bass shelf) ─────────────────────────────────────
+// ── LO CONTOUR: BBE Lo Contour emulation + AFS-2 live feedback killer ────────
 function applyBass(v){
     if(!audioCtx) return;
-    loContour.gain.value = v*11;
+    loContour.gain.value = v * 11;          // 0 → +11 dB bass shelf
+
+    // AFS-2 lo feedback killer notch depth scales with bass boost
+    // More bass boost = deeper notches to prevent low-freq feedback loops
+    const nd = -(v * 4);
+    afsLo1.gain.value = nd;
+    afsLo2.gain.value = nd;
+    // afsLo3 is adaptive — gain set by startAFS_Lo tracker
+}
+
+// ── Adaptive AFS-2 MID/HIGH tracker (200Hz–7kHz) — for volume parallel path ─
+function startAFS_Mid(){
+    if(afsTimer) clearInterval(afsTimer);
+    afsTimer = setInterval(()=>{
+        if(!analyser || !isLive) return;
+        const bins = analyser.frequencyBinCount;
+        const fd   = new Float32Array(bins);
+        analyser.getFloatFrequencyData(fd);
+        const sr = audioCtx.sampleRate;
+        const lo = Math.floor(200  / (sr/2) * bins);
+        const hi = Math.ceil (7000 / (sr/2) * bins);
+        let pBin=lo, pVal=-Infinity;
+        for(let i=lo;i<hi;i++) if(fd[i]>pVal){ pVal=fd[i]; pBin=i; }
+        if(pVal > -22){
+            const hz = (pBin/bins)*(sr/2);
+            afsN3.frequency.value = afsN3.frequency.value*0.72 + hz*0.28;
+        }
+    }, 500);
+}
+
+// ── Adaptive AFS-2 LO tracker (60Hz–400Hz) — for lo contour path ─────────────
+let afsLoTimer = null;
+function startAFS_Lo(){
+    if(afsLoTimer) clearInterval(afsLoTimer);
+    afsLoTimer = setInterval(()=>{
+        if(!analyser || !isLive) return;
+        const bins = analyser.frequencyBinCount;
+        const fd   = new Float32Array(bins);
+        analyser.getFloatFrequencyData(fd);
+        const sr = audioCtx.sampleRate;
+        const lo = Math.floor(60  / (sr/2) * bins);
+        const hi = Math.ceil(400  / (sr/2) * bins);
+        let pBin=lo, pVal=-Infinity;
+        for(let i=lo;i<hi;i++) if(fd[i]>pVal){ pVal=fd[i]; pBin=i; }
+        if(pVal > -28){  // lower threshold — bass peaks are often quieter
+            const hz = (pBin/bins)*(sr/2);
+            // Smooth tracking — no sudden jumps that cause audible glitches
+            afsLo3.frequency.value = afsLo3.frequency.value*0.75 + hz*0.25;
+        }
+    }, 700);
 }
 
 // ── Bypass ───────────────────────────────────────────────────────────────────
 function applyBypass(bypassed){
     if(!audioCtx) return;
     if(bypassed){
+        // Flatten entire chain — passthrough only
         bbeHi.gain.value=0; bbePresence.gain.value=0; applyWaveshaper(0);
         fbqN1.gain.value=0; fbqN2.gain.value=0; fbqN3.gain.value=0;
-        loContour.gain.value=0;
         seriesGain.gain.value=0.5; parallelGain.gain.value=0.5;
+        loContour.gain.value=0;
+        afsLo1.gain.value=0; afsLo2.gain.value=0; afsLo3.gain.value=0;
+        loGain.gain.value=0;
     } else {
         applyBoost(getKnobVal('boost'));
         applyBass(getKnobVal('bass'));
@@ -749,17 +886,16 @@ async function startCapture(){
                     highCount++;
                     if(highCount >= 3){ // 3 × 200ms = 600ms of feedback
                         // Emergency gain cut
-                        if(masterGain) masterGain.gain.linearRampToValueAtTime(
-                            0.0, audioCtx.currentTime+0.05
-                        );
+                        if(masterGain){ masterGain.gain.linearRampToValueAtTime(0.0, audioCtx.currentTime+0.05); }
+                        if(loGain)    { loGain.gain.linearRampToValueAtTime(0.0, audioCtx.currentTime+0.05); }
                         // Reset knobs to safe level
                         document.getElementById('knob-boost').dataset.val='20';
                         updateKnobUI('boost',20);
                         setTimeout(()=>{
-                            if(masterGain&&audioCtx)
-                                masterGain.gain.linearRampToValueAtTime(
-                                    1.0, audioCtx.currentTime+0.15
-                                );
+                            if(masterGain&&audioCtx){
+                                masterGain.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime+0.15);
+                                applyBass(getKnobVal('bass')); // restore lo gain too
+                            }
                         }, 200);
                         highCount=0;
                         setStatus('FEEDBACK CUT · REDUCE BOOST');
@@ -792,7 +928,8 @@ async function startCapture(){
 
 function stopCapture(){
     if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null;
-    if(afsTimer){ clearInterval(afsTimer); afsTimer=null; }
+    if(afsTimer)  { clearInterval(afsTimer);   afsTimer=null;   }
+    if(afsLoTimer){ clearInterval(afsLoTimer); afsLoTimer=null; }
     if(audioCtx){ audioCtx.close(); audioCtx=null; }
     analyser=null; sourceNode=null; isLive=false; isBypassed=false;
     isMicInput=false;
