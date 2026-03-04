@@ -225,20 +225,49 @@ box-shadow: 0 0 24px rgba(0,255,204,0.5);
 margin-top: 10px; text-align: center;
 font-size: 8px; letter-spacing: 1.5px; color: var(–sub);
 -webkit-text-fill-color: var(–sub); opacity: 0.6;
-text-transform: uppercase;
+text-transform: uppercase; transition: color 0.3s;
+}
+.source-chip.warn {
+color: #ffaa00; -webkit-text-fill-color: #ffaa00;
+opacity: 1; animation: blink 1.4s ease-in-out infinite;
 }
 
 /* ── Landscape ── */
 @media (orientation:landscape) and (max-height:500px) {
-.app { flex-direction: row; max-width: 100vw; }
-.viz-wrap { width: 42vw; flex-shrink: 0; border-right: 1px solid var(–border); }
-.controls { flex: 1; overflow-y: auto; padding: 10px 14px 12px; }
-#status { margin-bottom: 8px; font-size: 8px; }
-.knob-row { gap: 8px; margin-bottom: 10px; }
-.knob-outer { width: 64px; height: 64px; }
-.btn-row { gap: 6px; }
-.btn { padding: 9px 4px; font-size: 8px; }
+.app {
+flex-direction: row; max-width: 100vw;
 }
+header {
+/* In landscape header sits above viz column */
+padding: 8px 12px 7px;
+}
+.logo { font-size: 8px; letter-spacing: 4px; }
+.status-pill { font-size: 7px; padding: 3px 8px; }
+.viz-wrap {
+width: 44vw; flex-shrink: 0;
+border-right: 1px solid var(–border);
+/* header is inside left col so needs to be a column */
+display: flex; flex-direction: column;
+}
+.controls {
+flex: 1; overflow-y: auto;
+padding: 8px 12px 10px; border-top: none;
+}
+#status { margin-bottom: 6px; font-size: 7px; letter-spacing: 2px; }
+.knob-row { gap: 10px; margin-bottom: 10px; }
+.knob-outer { width: 60px; height: 60px; }
+.knob-title { font-size: 7px; letter-spacing: 2px; }
+.knob-val   { font-size: 9px; }
+.knob-sub   { font-size: 6px; }
+.btn-row { gap: 6px; }
+.btn { padding: 9px 4px; font-size: 8px; letter-spacing: 1.5px; }
+.source-chip { margin-top: 6px; font-size: 7px; }
+.level-wrap { max-width: 100%; margin-top: 8px; }
+}
+
+/* ── Smooth orientation transition ── */
+.app { transition: flex-direction 0.01s; }
+.viz-wrap, .controls { transition: width 0.01s, flex 0.01s; }
 
 /* ── Blink ── */
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
@@ -284,12 +313,12 @@ text-transform: uppercase;
                     <!-- Track arc -->
                     <circle cx="41" cy="41" r="32" fill="none"
                         stroke="rgba(0,255,204,0.08)" stroke-width="4"
-                        stroke-dasharray="175 226" stroke-dashoffset="-25"
+                        stroke-dasharray="100.53 201.06" stroke-dashoffset="-100.53"
                         stroke-linecap="round"/>
                     <!-- Value arc -->
                     <circle id="karc-boost" cx="41" cy="41" r="32" fill="none"
                         stroke="#00ffcc" stroke-width="4"
-                        stroke-dasharray="0 226" stroke-dashoffset="-25"
+                        stroke-dasharray="0 201.06" stroke-dashoffset="-100.53"
                         stroke-linecap="round"
                         style="filter:drop-shadow(0 0 4px #00ffcc)"/>
                     <!-- Knob body -->
@@ -312,11 +341,11 @@ text-transform: uppercase;
                 <svg class="knob-svg" viewBox="0 0 82 82">
                     <circle cx="41" cy="41" r="32" fill="none"
                         stroke="rgba(0,255,204,0.08)" stroke-width="4"
-                        stroke-dasharray="175 226" stroke-dashoffset="-25"
+                        stroke-dasharray="100.53 201.06" stroke-dashoffset="-100.53"
                         stroke-linecap="round"/>
                     <circle id="karc-bass" cx="41" cy="41" r="32" fill="none"
                         stroke="#00ffcc" stroke-width="4"
-                        stroke-dasharray="0 226" stroke-dashoffset="-25"
+                        stroke-dasharray="0 201.06" stroke-dashoffset="-100.53"
                         stroke-linecap="round"
                         style="filter:drop-shadow(0 0 4px #00ffcc)"/>
                     <circle cx="41" cy="41" r="24" fill="#0d1014"
@@ -367,7 +396,13 @@ function sizeCanvas(){
     CX = CY = SIZE / 2; R = SIZE * 0.455;
 }
 sizeCanvas();
-window.addEventListener('resize', () => { sizeCanvas(); rebuildStars(); });
+let _resizeT;
+function onResize(){
+    clearTimeout(_resizeT);
+    _resizeT = setTimeout(()=>{ sizeCanvas(); rebuildStars(); }, 150);
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', ()=>{ setTimeout(()=>{ sizeCanvas(); rebuildStars(); }, 300); });
 
 // ═══════════════════════════════════════════════════════
 //  GEODESIC SPHERE
@@ -486,7 +521,8 @@ let fbqN1, fbqN2, fbqN3;
 let afsN1, afsN2, afsN3;
 let seriesGain, parallelGain, sumNode, limiter, masterGain;
 let afsTimer=null;
-let isLive=false, isBypassed=false;
+let isLive=false, isBypassed=false, isMicInput=false;
+let feedbackGuardTimer=null;
 
 function buildGraph(src){
     audioCtx    = new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100,latencyHint:'playback'});
@@ -657,16 +693,30 @@ async function startCapture(){
                 }
                 // Display media not supported — try mic
                 src = await navigator.mediaDevices.getUserMedia({
-                    audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}
+                    audio:{
+                        echoCancellation:true,   // CRITICAL: breaks mic→speaker loop
+                        noiseSuppression:true,
+                        autoGainControl:false,
+                        sampleRate:44100,
+                    }
                 });
-                chip.textContent='SOURCE: MICROPHONE INPUT';
+                chip.textContent='⚠ MIC INPUT · HEADPHONES REQUIRED TO PREVENT FEEDBACK';
+                chip.className='source-chip warn';
+                isMicInput = true;
             }
         } else {
             // No getDisplayMedia — mic only
             src = await navigator.mediaDevices.getUserMedia({
-                audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}
+                audio:{
+                    echoCancellation:true,
+                    noiseSuppression:true,
+                    autoGainControl:false,
+                    sampleRate:44100,
+                }
             });
-            chip.textContent='SOURCE: MICROPHONE INPUT';
+            chip.textContent='⚠ MIC INPUT · HEADPHONES REQUIRED TO PREVENT FEEDBACK';
+            chip.className='source-chip warn';
+            isMicInput = true;
         }
 
         stream=src;
@@ -677,6 +727,55 @@ async function startCapture(){
         btnCapture.classList.add('live');
         pill.className='status-pill active'; pill.textContent='LIVE';
         setStatus('ENHANCING · ACTIVE');
+
+        // ── Feedback guard ────────────────────────────────────────────────────
+        // Mic input can loop back through speakers. If RMS stays pegged high
+        // for 3 consecutive checks (≈600ms), cut masterGain to break the loop.
+        if(isMicInput){
+            setStatus('⚠ HEADPHONES RECOMMENDED');
+            // Pre-emptively lower default boost for mic input to reduce loop risk
+            const safeBoost = Math.min(getKnobVal('boost'), 0.45);
+            document.getElementById('knob-boost').dataset.val = Math.round(safeBoost*100);
+            updateKnobUI('boost', Math.round(safeBoost*100));
+
+            let highCount = 0;
+            feedbackGuardTimer = setInterval(()=>{
+                if(!analyser||!isLive) return;
+                const fd = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(fd);
+                let sum=0; fd.forEach(v=>sum+=v);
+                const avg = sum/fd.length;
+                if(avg > 210){          // near-clip level sustained
+                    highCount++;
+                    if(highCount >= 3){ // 3 × 200ms = 600ms of feedback
+                        // Emergency gain cut
+                        if(masterGain) masterGain.gain.linearRampToValueAtTime(
+                            0.0, audioCtx.currentTime+0.05
+                        );
+                        // Reset knobs to safe level
+                        document.getElementById('knob-boost').dataset.val='20';
+                        updateKnobUI('boost',20);
+                        setTimeout(()=>{
+                            if(masterGain&&audioCtx)
+                                masterGain.gain.linearRampToValueAtTime(
+                                    1.0, audioCtx.currentTime+0.15
+                                );
+                        }, 200);
+                        highCount=0;
+                        setStatus('FEEDBACK CUT · REDUCE BOOST');
+                        pill.className='status-pill error'; pill.textContent='GUARD';
+                        setTimeout(()=>{
+                            if(isLive){
+                                pill.className='status-pill active'; pill.textContent='LIVE';
+                                setStatus('ENHANCING · ACTIVE');
+                            }
+                        },2000);
+                    }
+                } else {
+                    highCount = Math.max(0, highCount-1);
+                }
+            }, 200);
+        }
 
         // If stream track ends externally (e.g. user stops screen share)
         stream.getTracks().forEach(t=>t.addEventListener('ended',()=>{
@@ -696,12 +795,14 @@ function stopCapture(){
     if(afsTimer){ clearInterval(afsTimer); afsTimer=null; }
     if(audioCtx){ audioCtx.close(); audioCtx=null; }
     analyser=null; sourceNode=null; isLive=false; isBypassed=false;
+    isMicInput=false;
+    if(feedbackGuardTimer){clearInterval(feedbackGuardTimer);feedbackGuardTimer=null;}
     btnCapture.textContent='▶ CAPTURE';
     btnCapture.classList.remove('live');
     btnBypass.classList.remove('live'); btnBypass.textContent='⊘ BYPASS';
     pill.className='status-pill'; pill.textContent='STANDBY';
     setStatus('TAP CAPTURE TO BEGIN');
-    chip.textContent='NO SOURCE CONNECTED';
+    chip.textContent='NO SOURCE CONNECTED'; chip.className='source-chip';
     document.getElementById('level-fill').style.width='0%';
     document.getElementById('level-db').textContent='— dB';
 }
@@ -723,24 +824,26 @@ btnBypass.addEventListener('click',()=>{
 //  ROTARY KNOBS
 // ═══════════════════════════════════════════════════════
 // Knob maps 0–100% to -135° → +135° (270° sweep)
-const KNOB_MIN=-135, KNOB_MAX=135, KNOB_SWEEP=270;
+// Knob: 0% at 9-o'clock (left), 100% at 3-o'clock (right), gap at bottom
+const KNOB_MIN=-90, KNOB_MAX=90, KNOB_SWEEP=180;
 
 function getKnobVal(id){ return parseInt(document.getElementById('knob-'+id).dataset.val)/100; }
 
 function updateKnobUI(id, pct){
     // pct = 0–100
     const frac=pct/100;
-    const deg = KNOB_MIN + frac*KNOB_SWEEP;
+    const deg = KNOB_MIN + frac*KNOB_SWEEP;  // -90 → +90 deg
     const degRad = (deg-90)*Math.PI/180; // offset so 0 is top
 
     // Tick rotation
     document.getElementById('ktick-'+id).style.transform=`rotate(${deg}deg)`;
 
-    // Arc: circumference=2πr=201, track uses dasharray 175 (5/8 of circle)
-    const CIRC=2*Math.PI*32; // ≈201
-    const arcLen=frac*(CIRC*0.75); // 75% = 270°/360°
+    // Arc: 180° sweep, start at 9-o'clock (dashoffset=-100.53)
+    const CIRC=201.06;  // 2π×32
+    const HALF_C=100.53; // 180° arc
+    const arcLen=frac*HALF_C;
     const arc=document.getElementById('karc-'+id);
-    arc.setAttribute('stroke-dasharray',`${arcLen} ${CIRC}`);
+    arc.setAttribute('stroke-dasharray',`${arcLen} 201.06`);
 
     // Color shift: teal → yellow-green → amber at high gain
     const hue=165-frac*60;
@@ -773,7 +876,7 @@ function bindKnob(id){
     function onMove(e){
         if(!dragging) return;
         const y=(e.touches?e.touches[0].clientY:e.clientY);
-        const delta=Math.round((startY-y)*0.9); // drag up = increase
+        const delta=Math.round((startY-y)*0.65); // drag up = increase (180° sweep)
         const newVal=Math.min(100,Math.max(0,startVal+delta));
         el.dataset.val=newVal;
         updateKnobUI(id,newVal);
