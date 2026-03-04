@@ -8,12 +8,10 @@
 <style>
 :root {
     --neon:   #00ffcc;
-    --neon2:  #00e6b8;
-    --dim:    rgba(0,255,204,0.18);
     --red:    #ff0033;
+    --amber:  #ffaa00;
     --panel:  #0a0c0f;
     --dark:   #060608;
-    --mid:    #111318;
     --border: rgba(0,255,204,0.14);
     --text:   rgba(0,255,204,0.85);
     --sub:    rgba(0,255,204,0.45);
@@ -22,256 +20,188 @@
 - { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
 
 html, body {
-background: var(–dark);
-height: 100dvh; width: 100vw;
-overflow: hidden;
-font-family: ‘SF Mono’, ‘Fira Code’, ‘Courier New’, monospace;
+background:var(–dark); height:100dvh; width:100vw; overflow:hidden;
+font-family:‘SF Mono’,‘Fira Code’,‘Courier New’,monospace;
 }
-
 body {
-display: flex;
-justify-content: center;
-align-items: stretch;
-position: relative;
-overscroll-behavior: none;
-touch-action: pan-x pan-y;
+display:flex; justify-content:center; align-items:stretch;
+position:relative; overscroll-behavior:none; touch-action:pan-x pan-y;
 }
 
-/* ── Sky canvas behind everything ── */
-#sky {
-position: fixed; inset: 0;
-width: 100vw; height: 100dvh;
-pointer-events: none; z-index: 0;
-}
+/* ── Sky ── */
+#sky { position:fixed; inset:0; width:100vw; height:100dvh; pointer-events:none; z-index:0; }
 
 /* ── App shell ── */
 .app {
-position: relative; z-index: 1;
-width: 100%; max-width: 420px;
-background: var(–panel);
-display: flex; flex-direction: column;
-box-shadow: 0 0 80px rgba(0,0,0,0.9), 0 0 1px var(–border);
-color: var(–text); -webkit-text-fill-color: var(–text);
+position:relative; z-index:1; width:100%; max-width:420px;
+background:var(–panel); display:flex; flex-direction:column;
+box-shadow:0 0 80px rgba(0,0,0,0.9), 0 0 1px var(–border);
+color:var(–text); -webkit-text-fill-color:var(–text);
 }
 
 /* ── Header ── */
 header {
-padding: 14px 16px 12px;
-background: #070709;
-border-bottom: 1px solid var(–border);
-display: flex; align-items: center; justify-content: space-between;
-flex-shrink: 0;
+padding:12px 14px 10px; background:#070709;
+border-bottom:1px solid var(–border);
+display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
 }
 .logo {
-font-size: 10px; letter-spacing: 6px; font-weight: 700;
-text-transform: uppercase; color: var(–neon);
--webkit-text-fill-color: var(–neon);
+font-size:10px; letter-spacing:6px; font-weight:700; text-transform:uppercase;
+color:var(–neon); -webkit-text-fill-color:var(–neon);
 }
-.logo span { color: rgba(0,255,204,0.45); -webkit-text-fill-color: rgba(0,255,204,0.45); }
-.status-pill {
-font-size: 8px; letter-spacing: 2px; padding: 4px 10px;
-border: 1px solid var(–border); border-radius: 20px;
-color: var(–sub); -webkit-text-fill-color: var(–sub);
-text-transform: uppercase; transition: all 0.3s;
+.logo span { color:rgba(0,255,204,0.38); -webkit-text-fill-color:rgba(0,255,204,0.38); }
+
+.pill {
+font-size:8px; letter-spacing:2px; padding:4px 10px;
+border:1px solid var(–border); border-radius:20px;
+color:var(–sub); -webkit-text-fill-color:var(–sub);
+text-transform:uppercase; transition:all 0.3s; white-space:nowrap;
 }
-.status-pill.active {
-border-color: var(–neon); color: var(–neon);
--webkit-text-fill-color: var(–neon);
-box-shadow: 0 0 12px rgba(0,255,204,0.25);
+.pill.live  { border-color:var(–neon); color:var(–neon); -webkit-text-fill-color:var(–neon); box-shadow:0 0 12px rgba(0,255,204,0.3); }
+.pill.err   { border-color:var(–red);   color:var(–red);   -webkit-text-fill-color:var(–red); }
+.pill.warn  { border-color:var(–amber); color:var(–amber); -webkit-text-fill-color:var(–amber); }
+
+/* ── Bluetooth bar ── */
+#bt-bar {
+background:#06080b; border-bottom:1px solid var(–border);
+padding:6px 12px; display:none; align-items:center; gap:8px; flex-shrink:0;
 }
-.status-pill.error {
-border-color: var(–red); color: var(–red);
--webkit-text-fill-color: var(–red);
+#bt-bar.show { display:flex; }
+.bt-lbl {
+font-size:7px; letter-spacing:2px; color:var(–sub); -webkit-text-fill-color:var(–sub);
+text-transform:uppercase; opacity:0.65; flex-shrink:0;
 }
+#bt-select {
+flex:1; background:#0c0f12; border:1px solid rgba(0,255,204,0.2);
+color:var(–neon); -webkit-text-fill-color:var(–neon);
+font-family:inherit; font-size:8px; letter-spacing:0.5px;
+padding:5px 8px; border-radius:5px; outline:none;
+-webkit-appearance:none; appearance:none; cursor:pointer; text-transform:uppercase;
+}
+#bt-select option { background:#0c0f12; color:#00ffcc; }
+#bt-refresh {
+background:transparent; border:1px solid rgba(0,255,204,0.18);
+color:var(–neon); -webkit-text-fill-color:var(–neon);
+font-family:inherit; font-size:9px; padding:5px 10px; border-radius:5px;
+cursor:pointer; flex-shrink:0; outline:none; -webkit-appearance:none;
+font-weight:700; transition:opacity 0.15s;
+}
+#bt-refresh:active { opacity:0.5; }
+.spin { animation:spin 0.5s linear infinite; }
 
 /* ── Visualiser ── */
 .viz-wrap {
-flex: 1; min-height: 0;
-display: flex; flex-direction: column;
-align-items: center; justify-content: center;
-padding: 8px; background: var(–panel);
-position: relative;
+flex:1; min-height:0; display:flex; flex-direction:column;
+align-items:center; justify-content:center; padding:8px;
+background:var(–panel); position:relative;
 }
-.viz-label {
-font-size: 7px; letter-spacing: 5px; color: var(–sub);
--webkit-text-fill-color: var(–sub);
-text-transform: uppercase; margin-bottom: 8px; opacity: 0.7;
+.viz-lbl {
+font-size:7px; letter-spacing:5px; color:var(–sub);
+-webkit-text-fill-color:var(–sub); text-transform:uppercase;
+margin-bottom:8px; opacity:0.65;
 }
-.sphere-wrap {
-position: relative; display: flex;
-align-items: center; justify-content: center;
+.sphere-wrap { position:relative; display:flex; align-items:center; justify-content:center; }
+.ring-o {
+position:absolute; border-radius:50%;
+border:1px solid rgba(0,255,204,0.09);
+box-shadow:0 0 40px rgba(0,255,204,0.05),inset 0 0 40px rgba(0,255,204,0.02);
+pointer-events:none; top:-16px; left:-16px; right:-16px; bottom:-16px;
 }
-.ring-outer {
-position: absolute; border-radius: 50%;
-border: 1px solid rgba(0,255,204,0.09);
-box-shadow: 0 0 40px rgba(0,255,204,0.05), inset 0 0 40px rgba(0,255,204,0.02);
-pointer-events: none;
-top:-16px; left:-16px; right:-16px; bottom:-16px;
+.ring-i {
+position:absolute; border-radius:50%;
+border:1px solid rgba(0,255,204,0.26);
+box-shadow:0 0 20px rgba(0,255,204,0.14),inset 0 0 20px rgba(0,255,204,0.04);
+pointer-events:none; top:-5px; left:-5px; right:-5px; bottom:-5px;
 }
-.ring-inner {
-position: absolute; border-radius: 50%;
-border: 1px solid rgba(0,255,204,0.28);
-box-shadow: 0 0 22px rgba(0,255,204,0.15), inset 0 0 22px rgba(0,255,204,0.04);
-pointer-events: none;
-top:-5px; left:-5px; right:-5px; bottom:-5px;
-}
-#vc {
-display: block; border-radius: 50%;
-touch-action: none; user-select: none; -webkit-user-select: none;
-}
+#vc { display:block; border-radius:50%; touch-action:none; user-select:none; -webkit-user-select:none; }
 
-/* ── Output level bar ── */
-.level-wrap {
-width: 100%; max-width: 280px;
-margin-top: 12px; display: flex;
-align-items: center; gap: 8px;
-}
-.level-label {
-font-size: 7px; letter-spacing: 2px; color: var(–sub);
--webkit-text-fill-color: var(–sub); min-width: 24px; opacity: 0.6;
-}
-.level-bar {
-flex: 1; height: 4px; background: rgba(0,255,204,0.07);
-border-radius: 2px; overflow: hidden;
-border: 1px solid rgba(0,255,204,0.1);
-}
-#level-fill {
-height: 100%; width: 0%; border-radius: 2px;
-background: var(–neon);
-box-shadow: 0 0 6px var(–neon);
-transition: width 0.06s ease-out, background 0.2s;
-}
-#level-db {
-font-size: 8px; letter-spacing: 1px; min-width: 42px;
-text-align: right; color: var(–neon);
--webkit-text-fill-color: var(–neon); opacity: 0.6;
-}
+/* ── Level meter ── */
+.lvl-wrap { width:100%; max-width:280px; margin-top:12px; display:flex; align-items:center; gap:8px; }
+.lvl-lbl  { font-size:7px; letter-spacing:2px; color:var(–sub); -webkit-text-fill-color:var(–sub); min-width:24px; opacity:0.55; }
+.lvl-bar  { flex:1; height:4px; background:rgba(0,255,204,0.07); border-radius:2px; overflow:hidden; border:1px solid rgba(0,255,204,0.1); }
+#lvl-fill { height:100%; width:0%; border-radius:2px; background:var(–neon); box-shadow:0 0 6px var(–neon); transition:width 0.06s ease-out, background 0.2s; }
+#lvl-db   { font-size:8px; letter-spacing:1px; min-width:42px; text-align:right; color:var(–neon); -webkit-text-fill-color:var(–neon); opacity:0.55; }
 
-/* ── Control panel ── */
-.controls {
-background: #080a0d;
-border-top: 1px solid var(–border);
-padding: 14px 16px 18px;
-flex-shrink: 0;
-}
+/* ── Controls panel ── */
+.ctrl { background:#080a0d; border-top:1px solid var(–border); padding:12px 16px 16px; flex-shrink:0; }
 
-/* ── Status line ── */
 #status {
-font-size: 9px; letter-spacing: 3px; color: var(–neon);
--webkit-text-fill-color: var(–neon);
-text-align: center; text-transform: uppercase;
-margin-bottom: 14px; opacity: 0.75; min-height: 14px;
+font-size:9px; letter-spacing:3px; color:var(–neon); -webkit-text-fill-color:var(–neon);
+text-align:center; text-transform:uppercase; margin-bottom:12px; opacity:0.75; min-height:14px;
 }
 
-/* ── Two knob row ── */
-.knob-row {
-display: grid; grid-template-columns: 1fr 1fr;
-gap: 12px; margin-bottom: 16px;
-}
-.knob-cell {
-display: flex; flex-direction: column;
-align-items: center; gap: 8px;
-}
+/* ── Knob row ── */
+.knob-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.knob-cell { display:flex; flex-direction:column; align-items:center; gap:6px; }
 .knob-title {
-font-size: 8px; letter-spacing: 2.5px; color: var(–neon);
--webkit-text-fill-color: var(–neon);
-text-transform: uppercase; text-align: center; opacity: 0.9; font-weight: 700;
+font-size:8px; letter-spacing:2.5px; color:var(–neon); -webkit-text-fill-color:var(–neon);
+text-transform:uppercase; text-align:center; font-weight:700; line-height:1.4;
 }
 .knob-sub {
-font-size: 7px; letter-spacing: 1px; color: var(–sub);
--webkit-text-fill-color: var(–sub);
-text-align: center; opacity: 0.7;
+font-size:7px; letter-spacing:1px; color:var(–sub); -webkit-text-fill-color:var(–sub);
+text-align:center; opacity:0.65;
 }
-
-/* ── Rotary knob ── */
 .knob-outer {
-position: relative; width: 82px; height: 82px;
-cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none;
+position:relative; width:82px; height:82px;
+cursor:pointer; touch-action:none; user-select:none; -webkit-user-select:none;
 }
-.knob-svg { width: 100%; height: 100%; }
+.knob-svg { width:100%; height:100%; }
 .knob-val {
-font-size: 11px; letter-spacing: 0; color: var(–neon);
--webkit-text-fill-color: var(–neon);
-font-weight: 700; text-align: center; margin-top: 2px;
+font-size:11px; font-weight:700; text-align:center; margin-top:2px;
+color:var(–neon); -webkit-text-fill-color:var(–neon);
 }
 
 /* ── Buttons ── */
-.btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
 .btn {
--webkit-appearance: none; appearance: none;
-background: transparent; border: 1px solid rgba(0,255,204,0.3);
-color: var(–neon); -webkit-text-fill-color: var(–neon);
-font-family: inherit; font-size: 9px; letter-spacing: 2px;
-text-transform: uppercase; font-weight: 700;
-padding: 11px 4px; border-radius: 6px;
-cursor: pointer; transition: all 0.15s;
-outline: none; touch-action: manipulation;
+-webkit-appearance:none; appearance:none; outline:none;
+background:transparent; border:1px solid rgba(0,255,204,0.28);
+color:var(–neon); -webkit-text-fill-color:var(–neon);
+font-family:inherit; font-size:9px; letter-spacing:2px; font-weight:700;
+text-transform:uppercase; padding:11px 4px; border-radius:6px;
+cursor:pointer; transition:all 0.15s; touch-action:manipulation;
 }
-.btn:active { transform: scale(0.93); opacity: 0.65; }
-.btn.primary {
-border-color: var(–neon); background: rgba(0,255,204,0.06);
-box-shadow: 0 0 18px rgba(0,255,204,0.1);
-}
-.btn.primary.live {
-background: var(–neon); color: #000;
--webkit-text-fill-color: #000;
-box-shadow: 0 0 24px rgba(0,255,204,0.5);
-}
-.btn.danger { border-color: rgba(255,0,51,0.4); color: var(–red); -webkit-text-fill-color: var(–red); }
-.btn.danger.live { background: var(–red); color: #000; -webkit-text-fill-color: #000; border-color: var(–red); }
+.btn:active { transform:scale(0.93); opacity:0.6; }
+.btn.go     { border-color:var(–neon); background:rgba(0,255,204,0.06); box-shadow:0 0 18px rgba(0,255,204,0.1); }
+.btn.go.on  { background:var(–neon); color:#000; -webkit-text-fill-color:#000; box-shadow:0 0 24px rgba(0,255,204,0.5); }
 
-/* ── Source info chip ── */
-.source-chip {
-margin-top: 10px; text-align: center;
-font-size: 8px; letter-spacing: 1.5px; color: var(–sub);
--webkit-text-fill-color: var(–sub); opacity: 0.6;
-text-transform: uppercase; transition: color 0.3s;
+/* ── Confirm button ── */
+#btn-confirm {
+display:none; width:100%; margin-bottom:8px;
+border-color:var(–amber); color:var(–amber); -webkit-text-fill-color:var(–amber);
+box-shadow:0 0 14px rgba(255,170,0,0.2);
 }
-.source-chip.warn {
-color: #ffaa00; -webkit-text-fill-color: #ffaa00;
-opacity: 1; animation: blink 1.4s ease-in-out infinite;
+#btn-confirm.show { display:block; animation:blink 1s ease-in-out infinite; }
+
+/* ── Source chip ── */
+.chip {
+text-align:center; font-size:8px; letter-spacing:1.5px;
+color:var(–sub); -webkit-text-fill-color:var(–sub);
+opacity:0.55; text-transform:uppercase; min-height:12px; transition:all 0.3s;
 }
+.chip.warn { color:var(–amber); -webkit-text-fill-color:var(–amber); opacity:1; animation:blink 1.4s ease-in-out infinite; }
+.chip.ok   { color:var(–neon);  -webkit-text-fill-color:var(–neon);  opacity:0.8; animation:none; }
 
 /* ── Landscape ── */
-@media (orientation:landscape) and (max-height:500px) {
-.app {
-flex-direction: row; max-width: 100vw;
-}
-header {
-/* In landscape header sits above viz column */
-padding: 8px 12px 7px;
-}
-.logo { font-size: 8px; letter-spacing: 4px; }
-.status-pill { font-size: 7px; padding: 3px 8px; }
-.viz-wrap {
-width: 44vw; flex-shrink: 0;
-border-right: 1px solid var(–border);
-/* header is inside left col so needs to be a column */
-display: flex; flex-direction: column;
-}
-.controls {
-flex: 1; overflow-y: auto;
-padding: 8px 12px 10px; border-top: none;
-}
-#status { margin-bottom: 6px; font-size: 7px; letter-spacing: 2px; }
-.knob-row { gap: 10px; margin-bottom: 10px; }
-.knob-outer { width: 60px; height: 60px; }
-.knob-title { font-size: 7px; letter-spacing: 2px; }
-.knob-val   { font-size: 9px; }
-.knob-sub   { font-size: 6px; }
-.btn-row { gap: 6px; }
-.btn { padding: 9px 4px; font-size: 8px; letter-spacing: 1.5px; }
-.source-chip { margin-top: 6px; font-size: 7px; }
-.level-wrap { max-width: 100%; margin-top: 8px; }
+@media (orientation:landscape) and (max-height:500px){
+.app { flex-direction:row; max-width:100vw; }
+header { padding:8px 12px; }
+.logo  { font-size:8px; letter-spacing:4px; }
+#bt-bar{ padding:4px 10px; }
+.viz-wrap { width:42vw; flex-shrink:0; border-right:1px solid var(–border); }
+.ctrl { flex:1; overflow-y:auto; padding:8px 12px 10px; border-top:none; }
+#status { margin-bottom:6px; font-size:7px; }
+.knob-row { gap:8px; margin-bottom:8px; }
+.knob-outer { width:60px; height:60px; }
+.knob-title { font-size:7px; }
+.knob-val   { font-size:9px; }
+.btn { padding:9px 4px; font-size:8px; }
+.lvl-wrap { max-width:100%; margin-top:8px; }
 }
 
-/* ── Smooth orientation transition ── */
-.app { transition: flex-direction 0.01s; }
-.viz-wrap, .controls { transition: width 0.01s, flex 0.01s; }
-
-/* ── Blink ── */
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-.recording { animation: blink 0.8s ease-in-out infinite; }
+/* ── Animations ── */
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.28} }
+@keyframes spin   { to{transform:rotate(360deg)} }
 </style>
 
 </head>
@@ -282,99 +212,110 @@ padding: 8px 12px 10px; border-top: none;
 <div class="app">
 
 ```
+<!-- Header -->
 <header>
     <div class="logo">DEPTH<span>BOOST</span></div>
-    <div class="status-pill" id="pill">STANDBY</div>
+    <div class="pill" id="pill">STANDBY</div>
 </header>
 
+<!-- Bluetooth / Output Device Bar -->
+<div id="bt-bar">
+    <span class="bt-lbl">&#x1F4F6; OUT</span>
+    <select id="bt-select">
+        <option value="default">&#x1F50A; SYSTEM DEFAULT</option>
+    </select>
+    <button id="bt-refresh" title="Refresh">&#x21BA;</button>
+</div>
+
+<!-- Sphere visualiser -->
 <div class="viz-wrap">
-    <div class="viz-label">IMMERSION SPHERE</div>
+    <div class="viz-lbl">IMMERSION SPHERE</div>
     <div class="sphere-wrap">
-        <div class="ring-outer"></div>
-        <div class="ring-inner"></div>
+        <div class="ring-o"></div>
+        <div class="ring-i"></div>
         <canvas id="vc"></canvas>
     </div>
-    <div class="level-wrap">
-        <span class="level-label">OUT</span>
-        <div class="level-bar"><div id="level-fill"></div></div>
-        <span id="level-db">— dB</span>
+    <div class="lvl-wrap">
+        <span class="lvl-lbl">OUT</span>
+        <div class="lvl-bar"><div id="lvl-fill"></div></div>
+        <span id="lvl-db">&#x2014; dB</span>
     </div>
 </div>
 
-<div class="controls">
+<!-- Controls -->
+<div class="ctrl">
+
     <div id="status">TAP CAPTURE TO BEGIN</div>
 
+    <!-- Two knobs -->
     <div class="knob-row">
-        <!-- Knob 1: Volume / Clarity -->
+
         <div class="knob-cell">
             <div class="knob-title">VOLUME<br>CLARITY</div>
             <div class="knob-outer" id="knob-boost" data-val="55">
                 <svg class="knob-svg" viewBox="0 0 82 82">
-                    <!-- Track arc -->
+                    <!-- Track: 180° arc, gap at bottom, start 9-o'clock -->
                     <circle cx="41" cy="41" r="32" fill="none"
                         stroke="rgba(0,255,204,0.08)" stroke-width="4"
-                        stroke-dasharray="100.53 201.06" stroke-dashoffset="-100.53"
-                        stroke-linecap="round"/>
+                        stroke-dasharray="100.53 201.06"
+                        stroke-dashoffset="-100.53" stroke-linecap="round"/>
                     <!-- Value arc -->
                     <circle id="karc-boost" cx="41" cy="41" r="32" fill="none"
                         stroke="#00ffcc" stroke-width="4"
-                        stroke-dasharray="0 201.06" stroke-dashoffset="-100.53"
-                        stroke-linecap="round"
-                        style="filter:drop-shadow(0 0 4px #00ffcc)"/>
-                    <!-- Knob body -->
-                    <circle cx="41" cy="41" r="24" fill="#0d1014"
-                        stroke="rgba(0,255,204,0.2)" stroke-width="1"/>
-                    <!-- Tick line -->
-                    <line id="ktick-boost" x1="41" y1="20" x2="41" y2="26"
-                        stroke="#00ffcc" stroke-width="2" stroke-linecap="round"
+                        stroke-dasharray="0 201.06"
+                        stroke-dashoffset="-100.53" stroke-linecap="round"
+                        style="filter:drop-shadow(0 0 5px #00ffcc)"/>
+                    <!-- Body -->
+                    <circle cx="41" cy="41" r="24" fill="#0c0f13" stroke="rgba(0,255,204,0.18)" stroke-width="1"/>
+                    <!-- Tick -->
+                    <line id="ktick-boost" x1="41" y1="20" x2="41" y2="27"
+                        stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"
                         style="transform-origin:41px 41px"/>
                 </svg>
             </div>
-            <div class="knob-val" id="kval-boost">35%</div>
+            <div class="knob-val" id="kval-boost">+11.0 dB</div>
             <div class="knob-sub">BBE · FBQ · AFS</div>
         </div>
 
-        <!-- Knob 2: Lo Contour -->
         <div class="knob-cell">
             <div class="knob-title">LO<br>CONTOUR</div>
-            <div class="knob-outer" id="knob-bass"  data-val="35">
+            <div class="knob-outer" id="knob-bass" data-val="35">
                 <svg class="knob-svg" viewBox="0 0 82 82">
                     <circle cx="41" cy="41" r="32" fill="none"
                         stroke="rgba(0,255,204,0.08)" stroke-width="4"
-                        stroke-dasharray="100.53 201.06" stroke-dashoffset="-100.53"
-                        stroke-linecap="round"/>
+                        stroke-dasharray="100.53 201.06"
+                        stroke-dashoffset="-100.53" stroke-linecap="round"/>
                     <circle id="karc-bass" cx="41" cy="41" r="32" fill="none"
                         stroke="#00ffcc" stroke-width="4"
-                        stroke-dasharray="0 201.06" stroke-dashoffset="-100.53"
-                        stroke-linecap="round"
-                        style="filter:drop-shadow(0 0 4px #00ffcc)"/>
-                    <circle cx="41" cy="41" r="24" fill="#0d1014"
-                        stroke="rgba(0,255,204,0.2)" stroke-width="1"/>
-                    <line id="ktick-bass" x1="41" y1="20" x2="41" y2="26"
-                        stroke="#00ffcc" stroke-width="2" stroke-linecap="round"
+                        stroke-dasharray="0 201.06"
+                        stroke-dashoffset="-100.53" stroke-linecap="round"
+                        style="filter:drop-shadow(0 0 5px #00ffcc)"/>
+                    <circle cx="41" cy="41" r="24" fill="#0c0f13" stroke="rgba(0,255,204,0.18)" stroke-width="1"/>
+                    <line id="ktick-bass" x1="41" y1="20" x2="41" y2="27"
+                        stroke="#00ffcc" stroke-width="2.5" stroke-linecap="round"
                         style="transform-origin:41px 41px"/>
                 </svg>
             </div>
-            <div class="knob-val" id="kval-bass">30%</div>
-            <div class="knob-sub">80–200 Hz</div>
+            <div class="knob-val" id="kval-bass">35%</div>
+            <div class="knob-sub">BBE LO · AFS-2</div>
         </div>
+
     </div>
 
+    <!-- Action buttons -->
     <div class="btn-row">
-        <button class="btn primary" id="btn-capture">▶ CAPTURE</button>
-        <button class="btn" id="btn-bypass">⊘ BYPASS</button>
+        <button class="btn go" id="btn-capture">&#x25BA; CAPTURE</button>
+        <button class="btn"    id="btn-bypass">&#x2298; BYPASS</button>
     </div>
-    <!-- Shown only when mic input is active and headphones not yet confirmed -->
-    <button class="btn confirm-btn" id="btn-confirm"
-        onclick="confirmHeadphones()"
-        style="display:none; width:100%; margin-top:8px;
-               border-color:#ffaa00; color:#ffaa00;
-               -webkit-text-fill-color:#ffaa00;
-               box-shadow:0 0 16px rgba(255,170,0,0.3);
-               animation:blink 1s ease-in-out infinite;">
-        🎧 HEADPHONES PLUGGED IN · TAP TO CONFIRM
+
+    <!-- Headphone confirmation (mic mode only) -->
+    <button class="btn" id="btn-confirm" onclick="confirmHeadphones()">
+        &#x1F3A7; HEADPHONES IN &#x2014; TAP CONFIRM
     </button>
-    <div class="source-chip" id="source-chip">NO SOURCE CONNECTED</div>
+
+    <!-- Source info -->
+    <div class="chip" id="chip">NO SOURCE CONNECTED</div>
+
 </div>
 ```
 
@@ -386,116 +327,112 @@ padding: 8px 12px 10px; border-top: none;
 // ═══════════════════════════════════════════════════════
 //  CANVAS SETUP
 // ═══════════════════════════════════════════════════════
-const vc  = document.getElementById('vc');
-const ctx = vc.getContext('2d');
-let SIZE, CX, CY, R;
+const vc = document.getElementById('vc');
+const cx = vc.getContext('2d');
+let SZ, CX, CY, R;
 
 function sizeCanvas(){
-    const isLand = window.innerWidth > window.innerHeight && window.innerHeight < 500;
-    if(isLand){
+    const land = window.innerWidth > window.innerHeight && window.innerHeight < 500;
+    let sz;
+    if(land){
         const col = Math.round(window.innerWidth * 0.42);
-        SIZE = Math.min(col, window.innerHeight - 60) - 30;
+        sz = Math.min(col, window.innerHeight - 60) - 30;
     } else {
-        // Portrait: fit within available vertical space
-        const avail = window.innerHeight - 340;
-        SIZE = Math.min(Math.round(window.innerWidth * 0.6), avail, 220);
+        const avail = window.innerHeight - 355;
+        sz = Math.min(Math.round(window.innerWidth * 0.58), avail, 210);
     }
-    SIZE = Math.max(SIZE, 90);
-    vc.width = vc.height = SIZE;
-    vc.style.width = vc.style.height = SIZE + 'px';
-    CX = CY = SIZE / 2; R = SIZE * 0.455;
+    SZ = Math.max(sz, 90);
+    vc.width = vc.height = SZ;
+    vc.style.width = vc.style.height = SZ + 'px';
+    CX = CY = SZ / 2;
+    R  = SZ * 0.455;
 }
 sizeCanvas();
-let _resizeT;
-function onResize(){
-    clearTimeout(_resizeT);
-    _resizeT = setTimeout(()=>{ sizeCanvas(); rebuildStars(); }, 150);
-}
-window.addEventListener('resize', onResize);
-window.addEventListener('orientationchange', ()=>{ setTimeout(()=>{ sizeCanvas(); rebuildStars(); }, 300); });
+let _rt;
+window.addEventListener('resize', ()=>{ clearTimeout(_rt); _rt=setTimeout(()=>{ sizeCanvas(); rebuildStars(); },150); });
+window.addEventListener('orientationchange', ()=>{ setTimeout(()=>{ sizeCanvas(); rebuildStars(); },300); });
 
 // ═══════════════════════════════════════════════════════
-//  GEODESIC SPHERE
+//  GEODESIC SPHERE GEOMETRY
 // ═══════════════════════════════════════════════════════
-const NODES = [], EDGES = [];
-(function buildGeo(){
+const GN=[], GE=[];
+(function(){
     const LD=10, LO=20;
     for(let li=0;li<=LD;li++){
         const frac=li/LD, lat=-Math.PI/2+Math.PI*frac;
         const type=frac<0.33?'lo':frac>0.66?'hi':'mid';
         const fi=type==='lo'?Math.floor(Math.random()*5):type==='hi'?19+Math.floor(Math.random()*37):5+Math.floor(Math.random()*14);
         const cnt=Math.max(1,Math.round(LO*Math.cos(lat)));
-        for(let lj=0;lj<cnt;lj++) NODES.push({lat,lon:2*Math.PI*lj/cnt+(li%2?.18:0),type,fi});
+        for(let lj=0;lj<cnt;lj++) GN.push({lat,lon:2*Math.PI*lj/cnt+(li%2?.18:0),type,fi});
     }
-    for(let a=0;a<NODES.length;a++) for(let b=a+1;b<NODES.length;b++){
-        const na=NODES[a],nb=NODES[b];
-        let dl=Math.abs(na.lon-nb.lon); if(dl>Math.PI) dl=2*Math.PI-dl;
-        if(Math.sqrt((na.lat-nb.lat)**2+(dl*Math.cos((na.lat+nb.lat)/2))**2)<0.40) EDGES.push([a,b]);
+    for(let a=0;a<GN.length;a++) for(let b=a+1;b<GN.length;b++){
+        const na=GN[a],nb=GN[b];
+        let dl=Math.abs(na.lon-nb.lon); if(dl>Math.PI)dl=2*Math.PI-dl;
+        if(Math.sqrt((na.lat-nb.lat)**2+(dl*Math.cos((na.lat+nb.lat)/2))**2)<0.40) GE.push([a,b]);
     }
 })();
 
-function proj(lat,lon,rotY){
-    const cl=Math.cos(lat),sl=Math.sin(lat),co=Math.cos(lon+rotY),so=Math.sin(lon+rotY);
+function proj(lat,lon,rY){
+    const cl=Math.cos(lat),sl=Math.sin(lat),co=Math.cos(lon+rY),so=Math.sin(lon+rY);
     return{x:CX+cl*so*R, y:CY-sl*R, z:cl*co};
 }
 
-// ── Stars ──
+// ── Orbital stars ──
 const BANDS=[...Array(18).fill('lo'),...Array(16).fill('mid'),...Array(18).fill('hi')];
 let STARS=[];
 function makeStars(){
     return BANDS.map(band=>{
-        const orbitR=0.13+Math.random()*0.68, dir=Math.random()<0.3?-1:1;
-        const speed=dir*(0.055+Math.random()*0.20)/Math.sqrt(orbitR);
-        const inclBase=band==='lo'?(Math.random()-0.5)*0.55:band==='hi'?Math.PI*0.5+(Math.random()-0.5)*0.7:(Math.random()-0.5)*Math.PI;
+        const oR=0.13+Math.random()*0.68, dir=Math.random()<0.3?-1:1;
+        const spd=dir*(0.055+Math.random()*0.20)/Math.sqrt(oR);
+        const iB=band==='lo'?(Math.random()-0.5)*0.55:band==='hi'?Math.PI*.5+(Math.random()-0.5)*.7:(Math.random()-0.5)*Math.PI;
         const fi=band==='lo'?Math.floor(Math.random()*5):band==='hi'?19+Math.floor(Math.random()*35):5+Math.floor(Math.random()*14);
         const ecc=Math.random()*0.42;
-        return{band,fi,hue:band,orbitR,speed,inclBase,
-            ascNode0:Math.random()*Math.PI*2, precRate:(Math.random()-0.5)*0.012,
-            wobbleAmp:0.02+Math.random()*0.08, wobbleSpd:0.008+Math.random()*0.025,
-            wobblePhs:Math.random()*Math.PI*2, ecc, phase:Math.random()*Math.PI*2,
-            size:0.10+Math.random()*0.48*(1-orbitR*0.3), basOp:0.20+Math.random()*0.50,
-            twinkleSpeed:0.5+Math.random()*2.5, twinkleAmp:0.08+Math.random()*0.28,
-            twinklePhase:Math.random()*Math.PI*2, trailLen:3+Math.floor(Math.random()*5),
-            trailDt:0.18+Math.random()*0.25};
+        return{band,fi,hue:band,oR,spd,iB,
+            aN0:Math.random()*Math.PI*2, pR:(Math.random()-.5)*.012,
+            wA:.02+Math.random()*.08, wS:.008+Math.random()*.025,
+            wP:Math.random()*Math.PI*2, ecc, ph:Math.random()*Math.PI*2,
+            sz:.10+Math.random()*.48*(1-oR*.3), bOp:.20+Math.random()*.50,
+            tSpd:.5+Math.random()*2.5, tAmp:.08+Math.random()*.28,
+            tPh:Math.random()*Math.PI*2, tLen:3+Math.floor(Math.random()*5),
+            tDt:.18+Math.random()*.25};
     });
 }
 STARS=makeStars();
 function rebuildStars(){ STARS=makeStars(); }
 
 function starPos(s,t,off){
-    const te=t-(off||0);
-    const asc=s.ascNode0+s.precRate*te;
-    const inc=s.inclBase+s.wobbleAmp*Math.sin(s.wobbleSpd*te+s.wobblePhs);
-    const M=s.phase+s.speed*te, E=M+s.ecc*Math.sin(M);
-    const trA=2*Math.atan2(Math.sqrt(1+s.ecc)*Math.sin(E/2),Math.sqrt(1-s.ecc)*Math.cos(E/2));
-    const r=Math.min(s.orbitR*R*(1-s.ecc*s.ecc)/(1+s.ecc*Math.cos(trA)),R*0.87);
-    const xO=r*Math.cos(trA),yO=r*Math.sin(trA);
+    const te=t-(off||0), asc=s.aN0+s.pR*te;
+    const inc=s.iB+s.wA*Math.sin(s.wS*te+s.wP);
+    const M=s.ph+s.spd*te, E=M+s.ecc*Math.sin(M);
+    const trA=2*Math.atan2(Math.sqrt(1+s.ecc)*Math.sin(E/2), Math.sqrt(1-s.ecc)*Math.cos(E/2));
+    const r=Math.min(s.oR*R*(1-s.ecc*s.ecc)/(1+s.ecc*Math.cos(trA)), R*0.87);
+    const xO=r*Math.cos(trA), yO=r*Math.sin(trA);
     const cI=Math.cos(inc),sI=Math.sin(inc),cN=Math.cos(asc),sN=Math.sin(asc);
     return{sx:CX+cN*xO-sN*yO*cI, sy:CY-(sN*xO+cN*yO*cI), depth:(yO*sI)/R};
 }
 
 // ═══════════════════════════════════════════════════════
-//  SKY STARFIELD
+//  SKY STARFIELD BACKGROUND
 // ═══════════════════════════════════════════════════════
 (function(){
     const sky=document.getElementById('sky'), sc=sky.getContext('2d');
     let sw,sh,SS=[];
     const COLS=[[190,240,255],[210,255,248],[200,220,255],[180,210,255],[155,235,255]];
-    function makeS(){
+    function mkS(){
         SS=[];
         const n=Math.round(sw*sh/1800);
         for(let i=0;i<n;i++){
             const col=COLS[Math.random()<0.6?0:Math.floor(Math.random()*COLS.length)];
-            const sz=Math.random()<0.92?.25+Math.random()*.6:.8+Math.random()*1.0;
+            const sz=Math.random()<0.92?.25+Math.random()*.6:.8+Math.random()*1;
             SS.push({x:Math.random()*sw,y:Math.random()*sh,sz,col,
                 ba:.35+Math.random()*.55,ts:.4+Math.random()*2.2,
                 ta:.06+Math.random()*.28,tp:Math.random()*Math.PI*2,
                 dx:(Math.random()-.5)*.012,dy:(Math.random()-.5)*.006});
         }
     }
-    function resize(){ sw=sky.width=window.innerWidth; sh=sky.height=window.innerHeight; makeS(); }
-    resize(); window.addEventListener('resize',resize);
-    function loop(){
+    function rsz(){ sw=sky.width=window.innerWidth; sh=sky.height=window.innerHeight; mkS(); }
+    rsz(); window.addEventListener('resize',rsz);
+    (function loop(){
         requestAnimationFrame(loop);
         const t=Date.now()/1000;
         const g=sc.createLinearGradient(0,0,0,sh);
@@ -509,177 +446,227 @@ function starPos(s,t,off){
         SS.forEach(s=>{
             s.x=(s.x+s.dx+sw)%sw; s.y=(s.y+s.dy+sh)%sh;
             const tw=1+s.ta*Math.sin(t*s.ts+s.tp), al=Math.min(1,s.ba*tw);
-            const[r,g,b]=s.col;
+            const[r,g2,b]=s.col;
             if(s.sz>.7){
                 const h=sc.createRadialGradient(s.x,s.y,0,s.x,s.y,s.sz*3.5);
-                h.addColorStop(0,`rgba(${r},${g},${b},${al*.3})`); h.addColorStop(1,'rgba(0,0,0,0)');
+                h.addColorStop(0,`rgba(${r},${g2},${b},${al*.3})`); h.addColorStop(1,'rgba(0,0,0,0)');
                 sc.beginPath(); sc.arc(s.x,s.y,s.sz*3.5,0,Math.PI*2); sc.fillStyle=h; sc.fill();
             }
             sc.beginPath(); sc.arc(s.x,s.y,Math.max(.2,s.sz),0,Math.PI*2);
-            sc.fillStyle=`rgba(${r},${g},${b},${al})`; sc.fill();
+            sc.fillStyle=`rgba(${r},${g2},${b},${al})`; sc.fill();
         });
-    }
-    loop();
+    })();
 })();
 
 // ═══════════════════════════════════════════════════════
-//  AUDIO ENGINE
+//  AUDIO ENGINE STATE
 // ═══════════════════════════════════════════════════════
-let audioCtx=null, analyser=null, sourceNode=null, stream=null;
-let loContour, bbeHi, bbePresence, bbeWave;
-let fbqN1, fbqN2, fbqN3;
-let afsN1, afsN2, afsN3;
-let seriesGain, parallelGain, sumNode, limiter, masterGain;
-let afsTimer=null;
-let isLive=false, isBypassed=false, isMicInput=false;
-let feedbackGuardTimer=null;
+let actx=null, analyser=null, srcNode=null, stream=null;
 
+// VOLUME/CLARITY path ─ BBE 882i (series) + FBQ1000 (series) ║ DBX AFS-2 (parallel)
+let bbeHi, bbePresence, bbeWave;       // BBE 882i Hi-Definition stage
+let fbqN1, fbqN2, fbqN3;              // FBQ1000 protective notches
+let afsN1, afsN2, afsN3;             // DBX AFS-2 parallel (afsN3 = adaptive)
+let seriesGain, parallelGain;
+
+// LO CONTOUR path ─ BBE 882i Lo Contour + AFS-2 lo feedback killer
+let loShelf, afsLo1, afsLo2, afsLo3; // loShelf = BBE Lo, afsLo3 = adaptive
+let loGain;
+
+// Output ─ sum → limiter (−0.1 dBFS) → master → gate → analyser → dest
+let sumNode, limiter, masterGain, gateGain;
+
+// Gate state
+let gateEnv=0, gateOpen=false;
+
+// Timers
+let afsMidTimer=null, afsLoTimer=null, gateTimer=null;
+
+// Flags
+let isLive=false, isBypassed=false, isMicInput=false, hpConfirmed=false;
+
+// Current output sink id
+let sinkId='default';
+
+// ═══════════════════════════════════════════════════════
+//  BLUETOOTH / OUTPUT DEVICE MANAGEMENT
+// ═══════════════════════════════════════════════════════
+const btBar     = document.getElementById('bt-bar');
+const btSelect  = document.getElementById('bt-select');
+const btRefresh = document.getElementById('bt-refresh');
+
+async function loadOutputDevices(){
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const outs    = devices.filter(d => d.kind === 'audiooutput');
+        if(!outs.length){ btBar.classList.remove('show'); return; }
+
+        btSelect.innerHTML = '';
+        outs.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.deviceId;
+            let lbl = d.label || (d.deviceId === 'default' ? 'System Default' : 'Audio Output');
+            // Detect Bluetooth devices by label keywords
+            const isBT = /bluetooth|airpod|buds|bose|sony|jabra|beats|jbl|wireless|headset|earphone|sennheiser|plantronics|poly|anker/i.test(lbl);
+            const isHP = /headphone|headset|earphone|airpod|buds/i.test(lbl);
+            if(d.deviceId === 'default') opt.textContent = '\uD83D\uDD0A ' + lbl;
+            else if(isBT || isHP)        opt.textContent = '\uD83C\uDFA7 ' + lbl.slice(0,36);
+            else                         opt.textContent = '\uD83D\uDD0A ' + lbl.slice(0,36);
+            opt.selected = (d.deviceId === sinkId);
+            btSelect.appendChild(opt);
+        });
+        btBar.classList.add('show');
+    } catch(e){ console.warn('enumerateDevices:', e); }
+}
+
+btSelect.addEventListener('change', async ()=>{
+    sinkId = btSelect.value;
+    if(!actx) return;
+    if(typeof actx.setSinkId === 'function'){
+        try {
+            await actx.setSinkId(sinkId);
+            const lbl = (btSelect.selectedOptions[0]?.text || '').replace(/^[\uD83C-\uDBFF\uDC00-\uDFFF]\s*/,'').slice(0,24).toUpperCase();
+            setStatus('OUTPUT \u2192 ' + lbl);
+        } catch(e){ setStatus('SWITCH FAILED \u2014 USE SYSTEM AUDIO'); }
+    } else {
+        setStatus('RESTART CAPTURE TO SWITCH DEVICE');
+    }
+});
+
+btRefresh.addEventListener('click', ()=>{
+    btRefresh.classList.add('spin');
+    loadOutputDevices().then(()=>{ setTimeout(()=>btRefresh.classList.remove('spin'), 500); });
+});
+
+// Initial load + watch for device changes
+loadOutputDevices();
+try { navigator.mediaDevices.addEventListener('devicechange', loadOutputDevices); } catch(e){}
+
+// ═══════════════════════════════════════════════════════
+//  AUDIO GRAPH CONSTRUCTION
+// ═══════════════════════════════════════════════════════
 function buildGraph(src){
-    audioCtx     = new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100,latencyHint:'playback'});
+    actx = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: 44100, latencyHint: 'playback'
+    });
+    analyser = actx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.82;
 
-    analyser     = audioCtx.createAnalyser();
-    analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.82;
+    srcNode = actx.createMediaStreamSource(src);
 
-    sourceNode   = audioCtx.createMediaStreamSource(src);
+    // ── BBE 882i — Hi-Definition series stage ─────────────────────────────────
+    // High shelf: Definition (air + top-end presence)
+    bbeHi = actx.createBiquadFilter();
+    bbeHi.type = 'highshelf'; bbeHi.frequency.value = 3200; bbeHi.gain.value = 0;
 
-    // ════════════════════════════════════════════════════════════════
-    //  VOLUME / CLARITY PATH
-    //  SERIES:   BBE 882i Hi-Definition → FBQ1000 protective notches
-    //  PARALLEL: DBX AFS-2 live feedback suppression
-    //  Gain-matched: series×0.5 + parallel×0.5 = full boost
-    // ════════════════════════════════════════════════════════════════
-
-    // ── BBE 882i Hi-Definition (series) ──────────────────────────────────────
-    // 1. High shelf — BBE Definition (air + presence recovery)
-    bbeHi        = audioCtx.createBiquadFilter();
-    bbeHi.type   = 'highshelf'; bbeHi.frequency.value = 3200; bbeHi.gain.value = 0;
-
-    // 2. Upper presence peak — BBE harmonic recovery (~5.2kHz)
-    bbePresence  = audioCtx.createBiquadFilter();
+    // Peaking presence: BBE harmonic recovery (~5.2kHz)
+    bbePresence = actx.createBiquadFilter();
     bbePresence.type = 'peaking'; bbePresence.frequency.value = 5200;
     bbePresence.Q.value = 0.85; bbePresence.gain.value = 0;
 
-    // 3. Harmonic exciter waveshaper — soft odd-harmonic saturation
-    //    Same psychoacoustic trick as the 882i: adds perceived loudness
-    //    without raising peak level
-    bbeWave      = audioCtx.createWaveShaper();
+    // Waveshaper: BBE harmonic exciter — soft odd-harmonic saturation
+    // Increases perceived loudness without raising peak level (psychoacoustic trick)
+    bbeWave = actx.createWaveShaper();
     bbeWave.oversample = '4x';
-    applyWaveshaper(0);
+    setWaveshaper(0);
 
-    // ── FBQ1000 protective notches (series, after BBE) ────────────────────────
-    // Depth scales with boost — lets you push harder without resonance buildup
-    fbqN1 = audioCtx.createBiquadFilter(); fbqN1.type='notch'; fbqN1.frequency.value=400;  fbqN1.Q.value=10;
-    fbqN2 = audioCtx.createBiquadFilter(); fbqN2.type='notch'; fbqN2.frequency.value=800;  fbqN2.Q.value=10;
-    fbqN3 = audioCtx.createBiquadFilter(); fbqN3.type='notch'; fbqN3.frequency.value=2500; fbqN3.Q.value=10;
+    // ── FBQ1000 — protective notch filters (series, after BBE) ────────────────
+    // Deepen as boost rises — prevents resonance buildup at high gain
+    fbqN1 = actx.createBiquadFilter(); fbqN1.type='notch'; fbqN1.frequency.value=400;  fbqN1.Q.value=10;
+    fbqN2 = actx.createBiquadFilter(); fbqN2.type='notch'; fbqN2.frequency.value=800;  fbqN2.Q.value=10;
+    fbqN3 = actx.createBiquadFilter(); fbqN3.type='notch'; fbqN3.frequency.value=2500; fbqN3.Q.value=10;
 
-    seriesGain   = audioCtx.createGain(); seriesGain.gain.value = 0.5;
+    seriesGain = actx.createGain(); seriesGain.gain.value = 0.5;
 
-    // ── DBX AFS-2 parallel path (mid/high feedback suppression) ──────────────
-    // Two fixed notches at common mid-range resonance bands
-    // + one adaptive notch that tracks loudest peak 200Hz–7kHz every 500ms
-    afsN1 = audioCtx.createBiquadFilter(); afsN1.type='notch'; afsN1.frequency.value=630;  afsN1.Q.value=14;
-    afsN2 = audioCtx.createBiquadFilter(); afsN2.type='notch'; afsN2.frequency.value=1250; afsN2.Q.value=14;
-    afsN3 = audioCtx.createBiquadFilter(); afsN3.type='notch'; afsN3.frequency.value=3150; afsN3.Q.value=14; // adaptive
+    // ── DBX AFS-2 — feedback suppression (parallel, taps source directly) ─────
+    // 2 fixed notches + 1 adaptive (tracks loudest 200Hz–7kHz peak every 500ms)
+    afsN1 = actx.createBiquadFilter(); afsN1.type='notch'; afsN1.frequency.value=630;  afsN1.Q.value=14;
+    afsN2 = actx.createBiquadFilter(); afsN2.type='notch'; afsN2.frequency.value=1250; afsN2.Q.value=14;
+    afsN3 = actx.createBiquadFilter(); afsN3.type='notch'; afsN3.frequency.value=3150; afsN3.Q.value=14;
 
-    parallelGain = audioCtx.createGain(); parallelGain.gain.value = 0.5;
+    parallelGain = actx.createGain(); parallelGain.gain.value = 0.5;
 
-    // ════════════════════════════════════════════════════════════════
-    //  LO CONTOUR PATH (independent knob)
-    //  BBE 882i Lo Contour emulation (phase-corrected bass shelf)
-    //  → AFS-2 live feedback killer (tracks low-freq feedback 60–400Hz)
-    // ════════════════════════════════════════════════════════════════
+    // ── BBE 882i — Lo Contour stage (independent path) ────────────────────────
+    // Phase-corrected bass shelf — frequency is device-adaptive
+    loShelf = actx.createBiquadFilter();
+    loShelf.type = 'lowshelf'; loShelf.frequency.value = getContourFreq(); loShelf.gain.value = 0;
 
-    // BBE Lo Contour — phase-corrected low shelf
-    // Frequency is device-adaptive (200Hz phone, 120Hz desktop/headphones)
-    loContour    = audioCtx.createBiquadFilter();
-    loContour.type = 'lowshelf'; loContour.frequency.value = getContourFreq(); loContour.gain.value = 0;
+    // ── AFS-2 Lo — low-frequency feedback killer ──────────────────────────────
+    // 2 fixed low-freq notches + 1 adaptive (tracks 60Hz–400Hz)
+    afsLo1 = actx.createBiquadFilter(); afsLo1.type='notch'; afsLo1.frequency.value=100; afsLo1.Q.value=8;
+    afsLo2 = actx.createBiquadFilter(); afsLo2.type='notch'; afsLo2.frequency.value=200; afsLo2.Q.value=8;
+    afsLo3 = actx.createBiquadFilter(); afsLo3.type='notch'; afsLo3.frequency.value=160; afsLo3.Q.value=8;
 
-    // AFS-2 Lo Feedback Killer — adaptive notch tracking low-freq resonance
-    // Two fixed bass notches + one that hunts the loudest low-freq peak
-    afsLo1 = audioCtx.createBiquadFilter(); afsLo1.type='notch'; afsLo1.frequency.value=100; afsLo1.Q.value=8;
-    afsLo2 = audioCtx.createBiquadFilter(); afsLo2.type='notch'; afsLo2.frequency.value=200; afsLo2.Q.value=8;
-    afsLo3 = audioCtx.createBiquadFilter(); afsLo3.type='notch'; afsLo3.frequency.value=160; afsLo3.Q.value=8; // adaptive
+    loGain = actx.createGain(); loGain.gain.value = 0;
 
-    loGain       = audioCtx.createGain(); loGain.gain.value = 0;
+    // ── Sum → Limiter (−0.1 dBFS hard ceiling) → Master ──────────────────────
+    sumNode = actx.createGain(); sumNode.gain.value = 1.0;
 
-    // ════════════════════════════════════════════════════════════════
-    //  SUM → BRICK-WALL LIMITER → MASTER
-    //  Hard ceiling at −0.1 dBFS — nothing gets through above this
-    // ════════════════════════════════════════════════════════════════
-    sumNode      = audioCtx.createGain(); sumNode.gain.value = 1.0;
-
-    limiter      = audioCtx.createDynamicsCompressor();
-    limiter.threshold.value = -0.1;  // −0.1 dBFS ceiling
-    limiter.knee.value      =  0.0;  // hard knee — no soft transition
-    limiter.ratio.value     = 20.0;  // near brick-wall
+    limiter = actx.createDynamicsCompressor();
+    limiter.threshold.value = -0.1;   // −0.1 dBFS hard ceiling
+    limiter.knee.value      =  0.0;   // no soft knee — hard brick wall
+    limiter.ratio.value     = 20.0;   // 20:1 ≈ brick wall
     limiter.attack.value    =  0.001; // 1ms — catches transients immediately
-    limiter.release.value   =  0.05;  // 50ms — quick recovery
+    limiter.release.value   =  0.05;  // 50ms release
 
-    masterGain   = audioCtx.createGain(); masterGain.gain.value = 1.0;
+    masterGain = actx.createGain(); masterGain.gain.value = 1.0;
+
+    // ── Gate — starts MUTED on mic input, opened by confirmHeadphones() ───────
+    gateGain = actx.createGain(); gateGain.gain.value = 0;
 
     // ════════════════════════════════════════════════════════════════
     //  SIGNAL ROUTING
     //
-    //  source ─┬─[SERIES]──  bbeHi→bbePresence→bbeWave
-    //          │              →fbqN1→fbqN2→fbqN3→seriesGain(×0.5) ──┐
-    //          │                                                      ├→ sumNode
-    //          ├─[PARALLEL]── afsN1→afsN2→afsN3→parallelGain(×0.5) ─┤
-    //          │                                                      │
-    //          └─[LO PATH]─── loContour→afsLo1→afsLo2→afsLo3       ─┘
-    //                          →loGain
+    //  src ─┬─ [SERIES]   bbeHi→bbePresence→bbeWave
+    //       │              →fbqN1→fbqN2→fbqN3→seriesGain(×0.5) ──┐
+    //       │                                                      │
+    //       ├─ [PARALLEL]  afsN1→afsN2→afsN3→parallelGain(×0.5) ─┤→ sum
+    //       │                                                      │
+    //       └─ [LO PATH]   loShelf→afsLo1→afsLo2→afsLo3→loGain ─┘
     //
-    //                              sumNode→limiter→masterGain→analyser→dest
+    //  sum → limiter(−0.1dBFS) → masterGain → gateGain → analyser → dest
     // ════════════════════════════════════════════════════════════════
 
-    // Series branch (BBE→FBQ)
-    sourceNode.connect(bbeHi);
-    bbeHi.connect(bbePresence);
-    bbePresence.connect(bbeWave);
-    bbeWave.connect(fbqN1);
-    fbqN1.connect(fbqN2);
-    fbqN2.connect(fbqN3);
-    fbqN3.connect(seriesGain);
-    seriesGain.connect(sumNode);
+    // Series branch (BBE → FBQ)
+    srcNode.connect(bbeHi);
+    bbeHi.connect(bbePresence); bbePresence.connect(bbeWave);
+    bbeWave.connect(fbqN1); fbqN1.connect(fbqN2); fbqN2.connect(fbqN3);
+    fbqN3.connect(seriesGain); seriesGain.connect(sumNode);
 
-    // Parallel branch (AFS-2 mid/high)
-    sourceNode.connect(afsN1);
-    afsN1.connect(afsN2);
-    afsN2.connect(afsN3);
-    afsN3.connect(parallelGain);
-    parallelGain.connect(sumNode);
+    // Parallel branch (AFS-2 taps source directly — not from BBE output)
+    srcNode.connect(afsN1);
+    afsN1.connect(afsN2); afsN2.connect(afsN3);
+    afsN3.connect(parallelGain); parallelGain.connect(sumNode);
 
     // Lo Contour branch (BBE Lo + AFS-2 lo feedback killer)
-    sourceNode.connect(loContour);
-    loContour.connect(afsLo1);
-    afsLo1.connect(afsLo2);
-    afsLo2.connect(afsLo3);
-    afsLo3.connect(loGain);
-    loGain.connect(sumNode);
-
-    // ── Noise gate (only active on mic input) ───────────────────────────────
-    // Prevents processed audio from looping back through speakers
-    // Gate stays CLOSED (gain=0) until signal exceeds threshold
-    gateGain = audioCtx.createGain();
-    gateGain.gain.value = 0;  // default MUTED — opened by confirmHeadphones()
+    srcNode.connect(loShelf);
+    loShelf.connect(afsLo1); afsLo1.connect(afsLo2); afsLo2.connect(afsLo3);
+    afsLo3.connect(loGain); loGain.connect(sumNode);
 
     // Output chain
-    sumNode.connect(limiter);
-    limiter.connect(masterGain);
-    masterGain.connect(gateGain);
-    gateGain.connect(analyser);
-    analyser.connect(audioCtx.destination);
+    sumNode.connect(limiter); limiter.connect(masterGain);
+    masterGain.connect(gateGain); gateGain.connect(analyser);
+    analyser.connect(actx.destination);
 
-    // Start both adaptive AFS notch trackers
+    // Apply chosen Bluetooth/output device if supported
+    if(typeof actx.setSinkId === 'function' && sinkId && sinkId !== 'default'){
+        actx.setSinkId(sinkId).catch(()=>{});
+    }
+
+    // Start adaptive AFS trackers
     startAFS_Mid();
     startAFS_Lo();
 
-    // Apply current knob values immediately
+    // Apply current knob values
     applyBoost(getKnobVal('boost'));
     applyBass(getKnobVal('bass'));
 }
 
 // ── BBE harmonic exciter waveshaper ──────────────────────────────────────────
-function applyWaveshaper(drive){
+// Odd-harmonic soft clipping — same psychoacoustic principle as original 882i
+// drive=0 → linear passthrough, drive=1 → warm saturated harmonic addition
+function setWaveshaper(drive){
     const n=512, curve=new Float32Array(n);
     for(let i=0;i<n;i++){
         const x=(i*2/n)-1, k=drive*10;
@@ -688,388 +675,320 @@ function applyWaveshaper(drive){
     bbeWave.curve = curve;
 }
 
-// ── VOLUME/CLARITY: BBE882i (series) + FBQ1000 (series) ║ AFS-2 (parallel) ──
+// ── VOLUME/CLARITY: BBE 882i (series) + FBQ1000 (series) ║ AFS-2 (parallel) ─
+// One knob controls: BBE shelves + waveshaper drive + FBQ notch depth + gain
+// 0 → +20 dB total — genuinely noticeable across all playback systems
 function applyBoost(v){
-    if(!audioCtx) return;
-    // 0 → +20 dB — genuinely noticeable volume increase
+    if(!actx) return;
     const dB  = v * 20;
     const lin = Math.pow(10, dB/20);
 
     // BBE 882i Hi-Definition stage
-    bbeHi.gain.value       = v * 10;     // 0 → +10 dB high shelf (air/presence)
-    bbePresence.gain.value = v * 8;      // 0 → +8 dB presence peak (clarity)
-    applyWaveshaper(v * 0.72);           // harmonic exciter — more aggressive
+    bbeHi.gain.value       = v * 10;   // 0 → +10 dB high shelf
+    bbePresence.gain.value = v * 8;    // 0 → +8 dB presence peak
+    setWaveshaper(v * 0.72);           // harmonic exciter scales with boost
 
-    // FBQ1000: protective notches scale with gain
+    // FBQ1000: notches deepen as gain rises → prevents resonance/feedback buildup
     const nd = -(v * 4.5);
-    fbqN1.gain.value = nd;
-    fbqN2.gain.value = nd;
-    fbqN3.gain.value = nd;
+    fbqN1.gain.value = nd; fbqN2.gain.value = nd; fbqN3.gain.value = nd;
 
     // Gain match: series×0.5 + parallel×0.5 = full lin gain
+    // Both paths summed at equal weight so total = target gain
     seriesGain.gain.value   = lin * 0.5;
     parallelGain.gain.value = lin * 0.5;
 }
 
-// ── LO CONTOUR: BBE Lo Contour + AFS-2 lo feedback killer ──────────────────
+// ── LO CONTOUR: BBE 882i Lo Contour + AFS-2 lo feedback killer ───────────────
+// Independent knob — set once per speaker system
+// 0 → +14 dB at device-adaptive frequency (120–200Hz)
 function applyBass(v){
-    if(!audioCtx) return;
-    loContour.gain.value = v * 14;       // 0 → +14 dB bass shelf (punchy)
-
-    // AFS-2 lo feedback killer — deeper notches protect at high bass boost
+    if(!actx) return;
+    loShelf.gain.value = v * 14;    // BBE Lo Contour shelf
     const nd = -(v * 5);
-    afsLo1.gain.value = nd;
+    afsLo1.gain.value = nd;         // AFS-2 fixed low notches deepen with bass
     afsLo2.gain.value = nd;
+    loGain.gain.value = v;          // lo path gain (0→1 linearly)
 }
 
-// ── Adaptive AFS-2 MID/HIGH tracker (200Hz–7kHz) — for volume parallel path ─
+// ── Full bypass — flatten all enhancement nodes ───────────────────────────────
+function applyBypass(on){
+    if(!actx) return;
+    if(on){
+        bbeHi.gain.value=0; bbePresence.gain.value=0; setWaveshaper(0);
+        fbqN1.gain.value=0; fbqN2.gain.value=0; fbqN3.gain.value=0;
+        seriesGain.gain.value=0.5; parallelGain.gain.value=0.5;
+        loShelf.gain.value=0;
+        afsLo1.gain.value=0; afsLo2.gain.value=0;
+        loGain.gain.value=0;
+    } else {
+        applyBoost(getKnobVal('boost'));
+        applyBass(getKnobVal('bass'));
+        if(hpConfirmed && gateGain && actx)
+            gateGain.gain.setTargetAtTime(1.0, actx.currentTime, 0.05);
+    }
+}
+
+// ── Adaptive AFS-2 mid/high tracker (200Hz–7kHz) ─────────────────────────────
+// Hunts the loudest peak in the mid-high range and moves afsN3 there
+// Smooth exponential tracking (72/28 mix) prevents audible glitches
 function startAFS_Mid(){
-    if(afsTimer) clearInterval(afsTimer);
-    afsTimer = setInterval(()=>{
+    if(afsMidTimer) clearInterval(afsMidTimer);
+    afsMidTimer = setInterval(()=>{
         if(!analyser || !isLive) return;
-        const bins = analyser.frequencyBinCount;
-        const fd   = new Float32Array(bins);
+        const bins=analyser.frequencyBinCount, fd=new Float32Array(bins);
         analyser.getFloatFrequencyData(fd);
-        const sr = audioCtx.sampleRate;
-        const lo = Math.floor(200  / (sr/2) * bins);
-        const hi = Math.ceil (7000 / (sr/2) * bins);
+        const sr=actx.sampleRate;
+        const lo=Math.floor(200/(sr/2)*bins), hi=Math.ceil(7000/(sr/2)*bins);
         let pBin=lo, pVal=-Infinity;
         for(let i=lo;i<hi;i++) if(fd[i]>pVal){ pVal=fd[i]; pBin=i; }
         if(pVal > -22){
-            const hz = (pBin/bins)*(sr/2);
+            const hz=(pBin/bins)*(sr/2);
             afsN3.frequency.value = afsN3.frequency.value*0.72 + hz*0.28;
         }
     }, 500);
 }
 
-// ── Adaptive AFS-2 LO tracker (60Hz–400Hz) — for lo contour path ─────────────
-let afsLoTimer = null;
+// ── Adaptive AFS-2 lo tracker (60Hz–400Hz) ───────────────────────────────────
+// Same technique for low-frequency resonance — moves afsLo3
 function startAFS_Lo(){
     if(afsLoTimer) clearInterval(afsLoTimer);
     afsLoTimer = setInterval(()=>{
         if(!analyser || !isLive) return;
-        const bins = analyser.frequencyBinCount;
-        const fd   = new Float32Array(bins);
+        const bins=analyser.frequencyBinCount, fd=new Float32Array(bins);
         analyser.getFloatFrequencyData(fd);
-        const sr = audioCtx.sampleRate;
-        const lo = Math.floor(60  / (sr/2) * bins);
-        const hi = Math.ceil(400  / (sr/2) * bins);
+        const sr=actx.sampleRate;
+        const lo=Math.floor(60/(sr/2)*bins), hi=Math.ceil(400/(sr/2)*bins);
         let pBin=lo, pVal=-Infinity;
         for(let i=lo;i<hi;i++) if(fd[i]>pVal){ pVal=fd[i]; pBin=i; }
-        if(pVal > -28){  // lower threshold — bass peaks are often quieter
-            const hz = (pBin/bins)*(sr/2);
-            // Smooth tracking — no sudden jumps that cause audible glitches
+        if(pVal > -28){
+            const hz=(pBin/bins)*(sr/2);
             afsLo3.frequency.value = afsLo3.frequency.value*0.75 + hz*0.25;
         }
     }, 700);
 }
 
-// ── Bypass ───────────────────────────────────────────────────────────────────
-function applyBypass(bypassed){
-    if(!audioCtx) return;
-    if(bypassed){
-        // Flatten entire chain — passthrough only
-        bbeHi.gain.value=0; bbePresence.gain.value=0; applyWaveshaper(0);
-        fbqN1.gain.value=0; fbqN2.gain.value=0; fbqN3.gain.value=0;
-        seriesGain.gain.value=0.5; parallelGain.gain.value=0.5;
-        loContour.gain.value=0;
-        afsLo1.gain.value=0; afsLo2.gain.value=0; afsLo3.gain.value=0;
-        loGain.gain.value=0;
-    } else {
-        applyBoost(getKnobVal('boost'));
-        applyBass(getKnobVal('bass'));
-        // Restore gate state
-        if(gateGain && audioCtx && headphonesConfirmed)
-            gateGain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.05);
-    }
-}
-
-// ── Adaptive AFS notch ───────────────────────────────────────────────────────
-function startAFS(){
-    if(afsTimer) clearInterval(afsTimer);
-    afsTimer=setInterval(()=>{
-        if(!analyser||!isLive) return;
-        const bins=analyser.frequencyBinCount;
-        const fd=new Float32Array(bins);
-        analyser.getFloatFrequencyData(fd);
-        const sr=audioCtx.sampleRate;
-        const lo=Math.floor(200/(sr/2)*bins), hi=Math.ceil(7000/(sr/2)*bins);
-        let pBin=lo, pVal=-Infinity;
-        for(let i=lo;i<hi;i++) if(fd[i]>pVal){pVal=fd[i];pBin=i;}
-        if(pVal>-22){
-            const hz=(pBin/bins)*(sr/2);
-            afsN3.frequency.value=afsN3.frequency.value*0.72+hz*0.28;
-        }
-    },600);
-}
-
+// ── Device-adaptive Lo Contour frequency ─────────────────────────────────────
+// Small phone speakers: 200Hz (upper bass warmth)
+// Tablet/mid phone:    165Hz
+// Desktop/headphones:  120Hz (real sub presence)
 function getContourFreq(){
-    const w=Math.min(window.screen.width,window.screen.height);
-    return w<400?200:w<768?165:120;
+    const w=Math.min(window.screen.width, window.screen.height);
+    return w<400 ? 200 : w<768 ? 165 : 120;
 }
 
-// ── Open output gate when user confirms headphones are plugged in ─────────────
+// ═══════════════════════════════════════════════════════
+//  HEADPHONE CONFIRMATION + NOISE GATE
+// ═══════════════════════════════════════════════════════
+// When using mic input, output is MUTED by default.
+// User must physically plug in headphones then tap CONFIRM.
+// This eliminates the speaker → mic → speaker feedback loop entirely.
+// After confirmation, a noise gate (20ms poll) closes output during silence
+// to prevent any residual pickup during quiet passages.
+
 function confirmHeadphones(){
-    if(!audioCtx||!gateGain) return;
-    headphonesConfirmed=true;
-    gateGain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.05);
-    document.getElementById('btn-confirm').style.display='none';
-    chip.textContent='✓ HEADPHONES ACTIVE · PROCESSING';
-    chip.className='source-chip';
-    setStatus('ENHANCING · ACTIVE');
-    pill.className='status-pill active'; pill.textContent='LIVE';
+    if(!actx || !gateGain) return;
+    hpConfirmed = true;
+    gateGain.gain.setTargetAtTime(1.0, actx.currentTime, 0.05);
+    document.getElementById('btn-confirm').classList.remove('show');
+    chip.textContent = '\u2713 HEADPHONES ACTIVE \u00B7 PROCESSING';
+    chip.className = 'chip ok';
+    setStatus('ENHANCING \u00B7 ACTIVE');
+    setPill('LIVE', 'live');
     startNoiseGate();
 }
 
-// ── Noise gate ────────────────────────────────────────────────────────────────
-// Cuts output to 0 during silence so mic can't pick up room sound
-// Fast open (8ms) / slower close (35ms) to avoid cutting speech
 function startNoiseGate(){
     if(gateTimer) clearInterval(gateTimer);
     gateTimer = setInterval(()=>{
-        if(!analyser||!isLive||!headphonesConfirmed) return;
+        if(!analyser || !isLive || !hpConfirmed) return;
         const fd=new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(fd);
-        const sr=audioCtx.sampleRate, bins=fd.length;
+        const sr=actx.sampleRate, bins=fd.length;
         const loB=Math.floor(300/(sr/2)*bins);
-        let sum=0, count=0;
-        for(let i=loB;i<bins;i++){ sum+=fd[i]*fd[i]; count++; }
-        const rms=Math.sqrt(sum/count)/255;
-        const atk=0.15, rel=0.05;
-        gateEnv=rms>gateEnv ? gateEnv*(1-atk)+rms*atk : gateEnv*(1-rel)+rms*rel;
-        const wantOpen=gateEnv>0.04;
-        if(wantOpen!==gateOpen){
-            gateOpen=wantOpen;
+        let sum=0, cnt=0;
+        for(let i=loB;i<bins;i++){ sum+=fd[i]*fd[i]; cnt++; }
+        const rms=Math.sqrt(sum/cnt)/255;
+        // Asymmetric smoothing: fast attack, slow release
+        gateEnv = rms > gateEnv ? gateEnv*0.85+rms*0.15 : gateEnv*0.95+rms*0.05;
+        const wantOpen = gateEnv > 0.04;
+        if(wantOpen !== gateOpen){
+            gateOpen = wantOpen;
             gateGain.gain.setTargetAtTime(
-                gateOpen?1.0:0.0, audioCtx.currentTime, gateOpen?0.008:0.035
+                gateOpen ? 1.0 : 0.0,
+                actx.currentTime,
+                gateOpen ? 0.008 : 0.035  // fast open, slower close
             );
         }
     }, 20);
 }
 
-// ── Open output gate (called when user confirms headphones plugged in) ────────
-function confirmHeadphones(){
-    if(!audioCtx||!gateGain) return;
-    headphonesConfirmed=true;
-    gateGain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.05);
-    document.getElementById('btn-confirm').style.display='none';
-    chip.textContent='✓ HEADPHONES CONFIRMED · AUDIO ACTIVE';
-    chip.className='source-chip';
-    setStatus('ENHANCING · ACTIVE');
-    pill.className='status-pill active'; pill.textContent='LIVE';
-    startNoiseGate();
-}
-
-// ── Noise gate — cuts output when signal drops below threshold ───────────────
-// Prevents feedback by killing output during silence (mic open to room)
-function startNoiseGate(){
-    if(gateTimer) clearInterval(gateTimer);
-    gateTimer = setInterval(()=>{
-        if(!analyser||!isLive||!headphonesConfirmed) return;
-        const fd = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(fd);
-        // RMS of mid/high bins (above 300Hz — avoids low-freq hum)
-        let sum=0, count=0;
-        const sr=audioCtx.sampleRate, bins=fd.length;
-        const loB=Math.floor(300/(sr/2)*bins);
-        for(let i=loB;i<bins;i++){ sum+=fd[i]*fd[i]; count++; }
-        const rms=Math.sqrt(sum/count)/255;
-
-        // Smooth envelope follower
-        const attack=0.15, release=0.05;
-        gateEnv = rms > gateEnv
-            ? gateEnv*(1-attack)+rms*attack
-            : gateEnv*(1-release)+rms*release;
-
-        const threshold=0.04; // open above ~4% RMS
-        const wantOpen=gateEnv>threshold;
-        if(wantOpen!==gateOpen){
-            gateOpen=wantOpen;
-            gateGain.gain.setTargetAtTime(
-                gateOpen?1.0:0.0,
-                audioCtx.currentTime,
-                gateOpen?0.008:0.035  // fast open, slightly slower close
-            );
-        }
-    }, 20); // check every 20ms
-}
-
 // ═══════════════════════════════════════════════════════
-//  CAPTURE SYSTEM AUDIO
+//  CAPTURE LIFECYCLE
 // ═══════════════════════════════════════════════════════
 const btnCapture = document.getElementById('btn-capture');
 const btnBypass  = document.getElementById('btn-bypass');
-const pill       = document.getElementById('pill');
+const pillEl     = document.getElementById('pill');
 const statusEl   = document.getElementById('status');
-const chip       = document.getElementById('source-chip');
+const chip       = document.getElementById('chip');
 
-function setStatus(msg){ statusEl.textContent=msg; }
+function setStatus(msg){ statusEl.textContent = msg; }
+function setPill(txt, cls){ pillEl.className='pill '+(cls||''); pillEl.textContent=txt; }
 
 async function startCapture(){
     if(isLive){ stopCapture(); return; }
-    setStatus('REQUESTING AUDIO…');
-    try{
-        // Try system audio first (getDisplayMedia — works on desktop Chrome/Edge)
-        // On iOS/Android Safari we fall back to microphone input
+    setStatus('REQUESTING AUDIO\u2026');
+    try {
         let src;
+        isMicInput = false;
+
         if(navigator.mediaDevices.getDisplayMedia){
-            try{
+            try {
+                // Primary: system / tab audio via getDisplayMedia
+                // Works on desktop Chrome/Edge and Android Chrome
                 src = await navigator.mediaDevices.getDisplayMedia({
-                    video:false,
-                    audio:{
-                        echoCancellation:false,
-                        noiseSuppression:false,
-                        autoGainControl:false,
-                        sampleRate:44100,
+                    video: false,
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl:  false,
+                        sampleRate: 44100,
                     }
                 });
-                chip.textContent='SOURCE: SYSTEM / TAB AUDIO';
+                chip.textContent = 'SOURCE: SYSTEM / TAB AUDIO';
+                chip.className = 'chip ok';
             } catch(e){
-                // User denied display capture, fall through to mic
-                if(e.name==='NotAllowedError'||e.name==='AbortError'){
-                    setStatus('CAPTURE DENIED');
-                    pill.className='status-pill error'; pill.textContent='DENIED';
-                    return;
+                if(e.name==='NotAllowedError' || e.name==='AbortError'){
+                    setStatus('CAPTURE DENIED'); setPill('DENIED','err'); return;
                 }
-                // Display media not supported — try mic
-                src = await navigator.mediaDevices.getUserMedia({
-                    audio:{
-                        echoCancellation:true,   // CRITICAL: breaks mic→speaker loop
-                        noiseSuppression:true,
-                        autoGainControl:false,
-                        sampleRate:44100,
-                    }
-                });
-                chip.textContent='⚠ MIC INPUT · HEADPHONES REQUIRED TO PREVENT FEEDBACK';
-                chip.className='source-chip warn';
+                // Fallback: microphone (iOS Safari, unsupported browsers)
+                src = await getMic();
+                if(!src) return;
                 isMicInput = true;
             }
         } else {
-            // No getDisplayMedia — mic only
-            src = await navigator.mediaDevices.getUserMedia({
-                audio:{
-                    echoCancellation:true,
-                    noiseSuppression:true,
-                    autoGainControl:false,
-                    sampleRate:44100,
-                }
-            });
-            chip.textContent='⚠ MIC INPUT · HEADPHONES REQUIRED TO PREVENT FEEDBACK';
-            chip.className='source-chip warn';
+            src = await getMic();
+            if(!src) return;
             isMicInput = true;
         }
 
-        stream=src;
+        stream = src;
         buildGraph(src);
-        isLive=true;
 
-        btnCapture.textContent='■ STOP';
-        btnCapture.classList.add('live');
+        // Re-enumerate devices now that we have permission — BT labels appear
+        loadOutputDevices();
+
+        isLive = true;
+        btnCapture.textContent = '\u25A0 STOP';
+        btnCapture.classList.add('on');
 
         if(isMicInput){
-            // Output MUTED until headphones confirmed — prevents feedback
-            pill.className='status-pill error'; pill.textContent='MUTED';
-            setStatus('PLUG IN HEADPHONES · TAP CONFIRM');
-            // On display media (tab/system audio) open gate immediately
+            // OUTPUT STAYS MUTED — gate.gain = 0 until confirmHeadphones()
+            hpConfirmed = false;
+            chip.textContent = '\u26A0 PLUG IN HEADPHONES THEN TAP CONFIRM';
+            chip.className = 'chip warn';
+            setPill('MUTED','warn');
+            setStatus('PLUG IN HEADPHONES \u00B7 TAP CONFIRM');
+            document.getElementById('btn-confirm').classList.add('show');
         } else {
-            // System / tab audio — no feedback risk, open gate immediately
-            if(gateGain && audioCtx)
-                gateGain.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.05);
-            headphonesConfirmed=true;
-            pill.className='status-pill active'; pill.textContent='LIVE';
-            setStatus('ENHANCING · ACTIVE');
+            // System audio: no feedback risk — open gate immediately
+            hpConfirmed = true;
+            gateGain.gain.setTargetAtTime(1.0, actx.currentTime, 0.05);
+            setPill('LIVE','live');
+            setStatus('ENHANCING \u00B7 ACTIVE');
         }
 
-        // ── Feedback guard ────────────────────────────────────────────────────
-        // Mic input can loop back through speakers. If RMS stays pegged high
-        // for 3 consecutive checks (≈600ms), cut masterGain to break the loop.
-        if(isMicInput){
-            setStatus('⚠ HEADPHONES RECOMMENDED');
-        // Mic output stays MUTED — confirmHeadphones() opens the gate
-        }
-
-        // If stream track ends externally (e.g. user stops screen share)
-        stream.getTracks().forEach(t=>t.addEventListener('ended',()=>{
-            if(isLive) stopCapture();
-        }));
+        // Handle external track end (e.g. user stops screen share in browser UI)
+        stream.getTracks().forEach(t => t.addEventListener('ended', ()=>{ if(isLive) stopCapture(); }));
 
     } catch(e){
         console.error(e);
         setStatus('CANNOT ACCESS AUDIO');
-        pill.className='status-pill error'; pill.textContent='ERROR';
-        chip.textContent='CHECK BROWSER PERMISSIONS';
+        setPill('ERROR','err');
+        chip.textContent = 'CHECK BROWSER PERMISSIONS'; chip.className='chip warn';
+    }
+}
+
+async function getMic(){
+    try {
+        return await navigator.mediaDevices.getUserMedia({
+            audio:{
+                echoCancellation: true,   // ESSENTIAL: prevents mic→speaker loop
+                noiseSuppression: true,
+                autoGainControl:  false,
+                sampleRate: 44100,
+            }
+        });
+    } catch(e){
+        setStatus('MIC ACCESS DENIED'); setPill('ERROR','err');
+        chip.textContent='ALLOW MICROPHONE PERMISSION'; chip.className='chip warn';
+        return null;
     }
 }
 
 function stopCapture(){
-    if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null;
-    if(afsTimer)  { clearInterval(afsTimer);   afsTimer=null;   }
-    if(afsLoTimer){ clearInterval(afsLoTimer); afsLoTimer=null; }
-    if(audioCtx){ audioCtx.close(); audioCtx=null; }
-    analyser=null; sourceNode=null; isLive=false; isBypassed=false;
-    isMicInput=false; headphonesConfirmed=false; gateEnv=0; gateOpen=false;
-    if(feedbackGuardTimer){clearInterval(feedbackGuardTimer);feedbackGuardTimer=null;}
-    if(gateTimer){clearInterval(gateTimer);gateTimer=null;}
-    document.getElementById('btn-confirm').style.display='none';
-    btnCapture.textContent='▶ CAPTURE';
-    btnCapture.classList.remove('live');
-    btnBypass.classList.remove('live'); btnBypass.textContent='⊘ BYPASS';
-    pill.className='status-pill'; pill.textContent='STANDBY';
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    if(afsMidTimer){ clearInterval(afsMidTimer); afsMidTimer=null; }
+    if(afsLoTimer) { clearInterval(afsLoTimer);  afsLoTimer=null;  }
+    if(gateTimer)  { clearInterval(gateTimer);   gateTimer=null;   }
+    if(actx)       { actx.close();               actx=null;        }
+    analyser=null; srcNode=null;
+    isLive=false; isBypassed=false; isMicInput=false; hpConfirmed=false;
+    gateEnv=0; gateOpen=false;
+    document.getElementById('btn-confirm').classList.remove('show');
+    btnCapture.textContent='\u25BA CAPTURE'; btnCapture.classList.remove('on');
+    btnBypass.textContent='\u2298 BYPASS'; btnBypass.classList.remove('on');
+    setPill('STANDBY','');
     setStatus('TAP CAPTURE TO BEGIN');
-    chip.textContent='NO SOURCE CONNECTED'; chip.className='source-chip';
-    document.getElementById('level-fill').style.width='0%';
-    document.getElementById('level-db').textContent='— dB';
+    chip.textContent='NO SOURCE CONNECTED'; chip.className='chip';
+    document.getElementById('lvl-fill').style.width='0%';
+    document.getElementById('lvl-db').textContent='\u2014 dB';
 }
 
 btnCapture.addEventListener('click', startCapture);
 
 btnBypass.addEventListener('click',()=>{
     if(!isLive){ setStatus('CAPTURE AUDIO FIRST'); return; }
-    isBypassed=!isBypassed;
+    isBypassed = !isBypassed;
     applyBypass(isBypassed);
-    btnBypass.classList.toggle('live', isBypassed);
-    btnBypass.textContent = isBypassed ? '▶ ENHANCE' : '⊘ BYPASS';
-    pill.className='status-pill'+(isBypassed?' error':' active');
-    pill.textContent = isBypassed ? 'BYPASS' : 'LIVE';
-    setStatus(isBypassed ? 'BYPASSED · PASSTHROUGH' : 'ENHANCING · ACTIVE');
+    btnBypass.classList.toggle('on', isBypassed);
+    btnBypass.textContent = isBypassed ? '\u25BA ENHANCE' : '\u2298 BYPASS';
+    setPill(isBypassed?'BYPASS':'LIVE', isBypassed?'err':'live');
+    setStatus(isBypassed ? 'BYPASSED \u00B7 PASSTHROUGH' : 'ENHANCING \u00B7 ACTIVE');
 });
 
 // ═══════════════════════════════════════════════════════
 //  ROTARY KNOBS
+//  Geometry: 0% = 9-o'clock (left), 100% = 3-o'clock (right)
+//  Gap at bottom. 180° sweep. dashoffset=-100.53 starts arc at 9-o'clock.
 // ═══════════════════════════════════════════════════════
-// Knob maps 0–100% to -135° → +135° (270° sweep)
-// Knob: 0% at 9-o'clock (left), 100% at 3-o'clock (right), gap at bottom
-const KNOB_MIN=-90, KNOB_MAX=90, KNOB_SWEEP=180;
+const KMIN=-90, KSWP=180;       // degree limits
+const CIRC=201.06, HALFC=100.53; // 2π×32, half
 
 function getKnobVal(id){ return parseInt(document.getElementById('knob-'+id).dataset.val)/100; }
 
 function updateKnobUI(id, pct){
-    // pct = 0–100
-    const frac=pct/100;
-    const deg = KNOB_MIN + frac*KNOB_SWEEP;  // -90 → +90 deg
-    const degRad = (deg-90)*Math.PI/180; // offset so 0 is top
+    const frac = pct/100;
+    const deg  = KMIN + frac*KSWP;  // -90 → +90°
 
-    // Tick rotation
-    document.getElementById('ktick-'+id).style.transform=`rotate(${deg}deg)`;
+    // Rotate tick
+    document.getElementById('ktick-'+id).style.transform = `rotate(${deg}deg)`;
 
-    // Arc: 180° sweep, start at 9-o'clock (dashoffset=-100.53)
-    const CIRC=201.06;  // 2π×32
-    const HALF_C=100.53; // 180° arc
-    const arcLen=frac*HALF_C;
-    const arc=document.getElementById('karc-'+id);
-    arc.setAttribute('stroke-dasharray',`${arcLen} 201.06`);
+    // Grow arc from 9-o'clock
+    const arcLen = frac * HALFC;
+    const arc    = document.getElementById('karc-'+id);
+    arc.setAttribute('stroke-dasharray', `${arcLen} ${CIRC}`);
 
-    // Color shift: teal → yellow-green → amber at high gain
-    const hue=165-frac*60;
-    const col=`hsl(${hue},100%,55%)`;
-    arc.setAttribute('stroke',col);
-    arc.style.filter=`drop-shadow(0 0 5px ${col})`;
-    document.getElementById('ktick-'+id).setAttribute('stroke',col);
+    // Colour: teal → yellow-green → amber
+    const hue = 165 - frac*60;
+    const col = `hsl(${hue},100%,55%)`;
+    arc.setAttribute('stroke', col);
+    arc.style.filter = `drop-shadow(0 0 5px ${col})`;
+    document.getElementById('ktick-'+id).setAttribute('stroke', col);
 
     // Value label
-    const dB=(frac*14).toFixed(1);
-    document.getElementById('kval-'+id).textContent=
-        id==='boost' ? (pct===0?'0 dB':'+'+dB+' dB') : pct+'%';
+    const boostdB = (frac*20).toFixed(1);
+    document.getElementById('kval-'+id).textContent =
+        id==='boost' ? (pct===0 ? '0 dB' : '+'+boostdB+' dB') : pct+'%';
 
     if(!isBypassed){
         if(id==='boost') applyBoost(frac);
@@ -1078,46 +997,43 @@ function updateKnobUI(id, pct){
 }
 
 function bindKnob(id){
-    const el=document.getElementById('knob-'+id);
+    const el = document.getElementById('knob-'+id);
     let startY, startVal, dragging=false;
 
-    function onStart(e){
+    const onStart = e => {
         dragging=true;
-        startY = (e.touches?e.touches[0].clientY:e.clientY);
+        startY = e.touches ? e.touches[0].clientY : e.clientY;
         startVal = parseInt(el.dataset.val);
         e.preventDefault();
-    }
-    function onMove(e){
+    };
+    const onMove = e => {
         if(!dragging) return;
-        const y=(e.touches?e.touches[0].clientY:e.clientY);
-        const delta=Math.round((startY-y)*0.65); // drag up = increase (180° sweep)
-        const newVal=Math.min(100,Math.max(0,startVal+delta));
-        el.dataset.val=newVal;
-        updateKnobUI(id,newVal);
+        const y   = e.touches ? e.touches[0].clientY : e.clientY;
+        const d   = Math.round((startY-y)*0.65); // drag UP = increase
+        const nv  = Math.min(100, Math.max(0, startVal+d));
+        el.dataset.val = nv;
+        updateKnobUI(id, nv);
         e.preventDefault();
-    }
-    function onEnd(){ dragging=false; }
+    };
+    const onEnd = () => { dragging=false; };
 
-    el.addEventListener('touchstart',onStart,{passive:false});
-    el.addEventListener('touchmove', onMove,{passive:false});
-    el.addEventListener('touchend',  onEnd);
-    el.addEventListener('mousedown', onStart);
-    window.addEventListener('mousemove',onMove);
-    window.addEventListener('mouseup',  onEnd);
+    el.addEventListener('touchstart', onStart, {passive:false});
+    el.addEventListener('touchmove',  onMove,  {passive:false});
+    el.addEventListener('touchend',   onEnd);
+    el.addEventListener('mousedown',  onStart);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup',   onEnd);
 
-    // Scroll wheel support (desktop)
-    el.addEventListener('wheel',e=>{
-        const v=parseInt(el.dataset.val);
-        const n=Math.min(100,Math.max(0,v+(e.deltaY<0?2:-2)));
+    // Scroll wheel (desktop)
+    el.addEventListener('wheel', e=>{
+        const v=parseInt(el.dataset.val), n=Math.min(100,Math.max(0,v+(e.deltaY<0?2:-2)));
         el.dataset.val=n; updateKnobUI(id,n); e.preventDefault();
-    },{passive:false});
+    }, {passive:false});
 }
 
-bindKnob('boost');
-bindKnob('bass');
-// Set initial UI state — 55% boost = +11dB, immediately noticeable
-updateKnobUI('boost',55);
-updateKnobUI('bass',35);
+bindKnob('boost'); bindKnob('bass');
+updateKnobUI('boost', 55);
+updateKnobUI('bass',  35);
 
 // ═══════════════════════════════════════════════════════
 //  DRAW LOOP — sphere + level meter
@@ -1126,117 +1042,120 @@ let rmsSmooth=0;
 
 function draw(){
     requestAnimationFrame(draw);
-    const bins=analyser?analyser.frequencyBinCount:64;
-    const freq=new Uint8Array(bins);
+    const bins = analyser ? analyser.frequencyBinCount : 64;
+    const freq = new Uint8Array(bins);
     if(analyser) analyser.getByteFrequencyData(freq);
 
-    const boostV=getKnobVal('boost');
-    const bassV =getKnobVal('bass');
+    const bV = getKnobVal('boost'), bassV = getKnobVal('bass');
 
-    // ── Level meter (RMS of high bins) ──────────────────────────────────────
-    if(analyser&&isLive){
-        let sum=0;
-        for(let i=0;i<bins;i++) sum+=(freq[i]/255)**2;
-        const rms=Math.sqrt(sum/bins);
+    // ── Level meter ──────────────────────────────────────────────────────────
+    if(analyser && isLive){
+        let s=0; for(let i=0;i<bins;i++) s+=(freq[i]/255)**2;
+        const rms=Math.sqrt(s/bins);
         rmsSmooth=rmsSmooth*0.88+rms*0.12;
         const db=20*Math.log10(Math.max(rmsSmooth,1e-6));
         const pct=Math.min(100,Math.max(0,(db+60)/60*100));
         const hue=165-pct*0.55;
-        const fill=document.getElementById('level-fill');
+        const fill=document.getElementById('lvl-fill');
         fill.style.width=pct+'%';
         fill.style.background=`hsl(${hue},100%,55%)`;
         fill.style.boxShadow=`0 0 6px hsl(${hue},100%,55%)`;
-        document.getElementById('level-db').textContent=db>-60?db.toFixed(1)+' dB':'— dB';
+        document.getElementById('lvl-db').textContent=db>-60?db.toFixed(1)+' dB':'\u2014 dB';
     }
 
     // ── Sphere ───────────────────────────────────────────────────────────────
-    ctx.clearRect(0,0,SIZE,SIZE);
-    const bg=ctx.createRadialGradient(CX,CY*.85,0,CX,CY,R*1.05);
+    cx.clearRect(0,0,SZ,SZ);
+    const bg=cx.createRadialGradient(CX,CY*.85,0,CX,CY,R*1.05);
     bg.addColorStop(0,'rgba(4,28,22,1)'); bg.addColorStop(.5,'rgba(2,14,12,1)'); bg.addColorStop(1,'rgba(0,4,8,1)');
-    ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.fillStyle=bg; ctx.fill();
-    ctx.save(); ctx.beginPath(); ctx.arc(CX,CY,R-.5,0,Math.PI*2); ctx.clip();
+    cx.beginPath(); cx.arc(CX,CY,R,0,Math.PI*2); cx.fillStyle=bg; cx.fill();
+    cx.save(); cx.beginPath(); cx.arc(CX,CY,R-.5,0,Math.PI*2); cx.clip();
 
     const t=Date.now()/1000;
+
+    // Orbital stars
     STARS.forEach(s=>{
         const rawF=freq[Math.min(s.fi,bins-1)]/255;
-        const boost=s.band==='lo'?bassV*.6:s.band==='hi'?boostV*.6:boostV*.4;
+        const boost=s.band==='lo'?bassV*.6:s.band==='hi'?bV*.6:bV*.4;
         const energy=Math.min(1,rawF+boost);
         let cr,cg,cb;
         if(s.hue==='lo'){cr=0;cg=210;cb=140;}else if(s.hue==='hi'){cr=170;cg=235;cb=255;}else{cr=0;cg=255;cb=215;}
         const bl=energy*.68;
         const r=Math.round(cr+(255-cr)*bl),g=Math.round(cg+(255-cg)*bl*.45),b=Math.round(cb+(255-cb)*bl*.25);
-        for(let step=s.trailLen;step>=1;step--){
-            const gh=starPos(s,t,step*s.trailDt); if(gh.depth<-.05) continue;
-            const gd=.28+.72*((gh.depth+1)/2), fd=1-step/(s.trailLen+1);
-            ctx.beginPath(); ctx.arc(gh.sx,gh.sy,Math.max(.1,s.size*.55*fd*gd),0,Math.PI*2);
-            ctx.fillStyle=`rgba(${cr},${cg},${cb},${fd*.18*gd*(.4+energy*.5)})`; ctx.fill();
+        for(let st=s.tLen;st>=1;st--){
+            const gh=starPos(s,t,st*s.tDt); if(gh.depth<-.05) continue;
+            const gd=.28+.72*((gh.depth+1)/2), fd=1-st/(s.tLen+1);
+            cx.beginPath(); cx.arc(gh.sx,gh.sy,Math.max(.1,s.sz*.55*fd*gd),0,Math.PI*2);
+            cx.fillStyle=`rgba(${cr},${cg},${cb},${fd*.18*gd*(.4+energy*.5)})`; cx.fill();
         }
         const pos=starPos(s,t); if(pos.depth<-.08) return;
         const da=.28+.72*((pos.depth+1)/2), ds=.50+.50*((pos.depth+1)/2);
-        const tw=1+(s.twinkleAmp+energy*.22)*Math.sin(t*s.twinkleSpeed+s.twinklePhase);
-        const al=Math.min(1,(s.basOp+energy*.45)*da*tw);
-        const rad=(s.size+energy*1.1)*ds;
-        const hR=Math.max(rad*2.5,rad*2.5+energy*4.5);
+        const tw=1+(s.tAmp+energy*.22)*Math.sin(t*s.tSpd+s.tPh);
+        const al=Math.min(1,(s.bOp+energy*.45)*da*tw);
+        const rad=(s.sz+energy*1.1)*ds, hR=Math.max(rad*2.5,rad*2.5+energy*4.5);
         if(al>.08){
-            const gw=ctx.createRadialGradient(pos.sx,pos.sy,0,pos.sx,pos.sy,hR);
+            const gw=cx.createRadialGradient(pos.sx,pos.sy,0,pos.sx,pos.sy,hR);
             gw.addColorStop(0,`rgba(${r},${g},${b},${al*(.28+energy*.38)})`);
             gw.addColorStop(.5,`rgba(${cr},${cg},${cb},${al*.05})`);
             gw.addColorStop(1,'rgba(0,0,0,0)');
-            ctx.beginPath(); ctx.arc(pos.sx,pos.sy,hR,0,Math.PI*2); ctx.fillStyle=gw; ctx.fill();
+            cx.beginPath(); cx.arc(pos.sx,pos.sy,hR,0,Math.PI*2); cx.fillStyle=gw; cx.fill();
         }
-        ctx.beginPath(); ctx.arc(pos.sx,pos.sy,Math.max(.18,rad),0,Math.PI*2);
-        ctx.fillStyle=`rgba(${r},${g},${b},${Math.min(1,al)})`; ctx.fill();
+        cx.beginPath(); cx.arc(pos.sx,pos.sy,Math.max(.18,rad),0,Math.PI*2);
+        cx.fillStyle=`rgba(${r},${g},${b},${Math.min(1,al)})`; cx.fill();
     });
 
-    const rotY=(Date.now()/1000)*.16;
-    const P=NODES.map(n=>proj(n.lat,n.lon,rotY));
-    const eS=EDGES.map(([a,b])=>({a,b,pa:P[a],pb:P[b],mZ:(P[a].z+P[b].z)/2})).sort((x,y)=>x.mZ-y.mZ);
-    eS.forEach(({a,b,pa,pb,mZ})=>{
+    // Geodesic edges
+    const rotY=(Date.now()/1000)*.16, P=GN.map(n=>proj(n.lat,n.lon,rotY));
+    GE.map(([a,b])=>({a,b,pa:P[a],pb:P[b],mZ:(P[a].z+P[b].z)/2}))
+      .sort((x,y)=>x.mZ-y.mZ)
+      .forEach(({a,b,pa,pb,mZ})=>{
         if(pa.z<0&&pb.z<0) return;
         const vis=Math.min(1,Math.max(0,mZ+.18)*3.5); if(vis<=0) return;
-        const na=NODES[a],nb=NODES[b];
+        const na=GN[a],nb=GN[b];
         const e=(freq[Math.min(na.fi,bins-1)]+freq[Math.min(nb.fi,bins-1)])/(2*255);
         const[r,g,b2]=na.type==='lo'?[0,200,155]:na.type==='hi'?[160,245,255]:[0,255,215];
-        ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y);
-        ctx.strokeStyle=`rgba(${r},${g},${b2},${Math.min(.55,(.04+e*.38)*vis)})`;
-        ctx.lineWidth=.4+e*.85; ctx.stroke();
+        cx.beginPath(); cx.moveTo(pa.x,pa.y); cx.lineTo(pb.x,pb.y);
+        cx.strokeStyle=`rgba(${r},${g},${b2},${Math.min(.55,(.04+e*.38)*vis)})`;
+        cx.lineWidth=.4+e*.85; cx.stroke();
     });
-    NODES.forEach((n,i)=>{
+
+    // Geodesic nodes
+    GN.forEach((n,i)=>{
         const p=P[i]; if(p.z<-.12) return;
         const rV=freq[Math.min(n.fi,bins-1)]/255;
-        const boost=n.type==='lo'?bassV*.55:n.type==='hi'?boostV*.55:boostV*.35;
-        const energy=Math.min(1,rV+boost);
-        const vis=Math.max(0,p.z+.18);
+        const boost=n.type==='lo'?bassV*.55:n.type==='hi'?bV*.55:bV*.35;
+        const energy=Math.min(1,rV+boost), vis=Math.max(0,p.z+.18);
         const dotR=Math.max(.3,(.8+energy*3.8)*vis);
         const[cr,cg,cb]=n.type==='lo'?[0,210,140]:n.type==='hi'?[170,240,255]:[0,255,210];
         if(energy>.06){
-            const gw=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,dotR*5);
+            const gw=cx.createRadialGradient(p.x,p.y,0,p.x,p.y,dotR*5);
             gw.addColorStop(0,`rgba(${cr},${cg},${cb},${energy*.55*vis})`);
             gw.addColorStop(.4,`rgba(${cr},${cg},${cb},${energy*.12*vis})`);
             gw.addColorStop(1,'rgba(0,0,0,0)');
-            ctx.beginPath(); ctx.arc(p.x,p.y,dotR*5,0,Math.PI*2); ctx.fillStyle=gw; ctx.fill();
+            cx.beginPath(); cx.arc(p.x,p.y,dotR*5,0,Math.PI*2); cx.fillStyle=gw; cx.fill();
         }
         const wm=energy*.85;
-        ctx.beginPath(); ctx.arc(p.x,p.y,dotR,0,Math.PI*2);
-        ctx.fillStyle=`rgba(${Math.round(cr+(255-cr)*wm)},${Math.round(cg+(255-cg)*wm*.4)},${Math.round(cb+(255-cb)*wm*.25)},${Math.min(1,.45+energy*.75)*vis})`;
-        ctx.fill();
+        cx.beginPath(); cx.arc(p.x,p.y,dotR,0,Math.PI*2);
+        cx.fillStyle=`rgba(${Math.round(cr+(255-cr)*wm)},${Math.round(cg+(255-cg)*wm*.4)},${Math.round(cb+(255-cb)*wm*.25)},${Math.min(1,.45+energy*.75)*vis})`;
+        cx.fill();
     });
 
-    ctx.restore();
-    const sp=ctx.createRadialGradient(CX-R*.38,CY-R*.38,0,CX,CY,R);
+    cx.restore();
+
+    // Specular rim
+    const sp=cx.createRadialGradient(CX-R*.38,CY-R*.38,0,CX,CY,R);
     sp.addColorStop(0,'rgba(0,255,200,.08)'); sp.addColorStop(.55,'rgba(0,255,200,.01)'); sp.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.fillStyle=sp; ctx.fill();
-    ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.strokeStyle='rgba(0,255,204,.32)'; ctx.lineWidth=1.8; ctx.stroke();
+    cx.beginPath(); cx.arc(CX,CY,R,0,Math.PI*2); cx.fillStyle=sp; cx.fill();
+    cx.beginPath(); cx.arc(CX,CY,R,0,Math.PI*2); cx.strokeStyle='rgba(0,255,204,.32)'; cx.lineWidth=1.8; cx.stroke();
 }
 draw();
 
-// ── Block scroll jank ─────────────────────────────────────────────────────────
-vc.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
-vc.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
-document.addEventListener('touchmove',e=>{
-    if(e.target.closest('.knob-outer')) return;
+// ── Prevent scroll/jank on canvas and knobs ───────────────────────────────────
+vc.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
+vc.addEventListener('touchstart',e=>e.preventDefault(), {passive:false});
+document.addEventListener('touchmove', e=>{
+    if(e.target.closest('.knob-outer, #bt-select')) return;
     e.preventDefault();
-},{passive:false});
+}, {passive:false});
 </script>
 
 </body>
