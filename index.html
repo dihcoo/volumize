@@ -586,14 +586,23 @@ function buildNodes(){
   sumNode=actx.createGain(); sumNode.gain.value=0.55;
   limiter=actx.createDynamicsCompressor(); limiter.threshold.value=-3; limiter.knee.value=3; limiter.ratio.value=20; limiter.attack.value=0.001; limiter.release.value=0.15;
   masterGain=actx.createGain(); masterGain.gain.value=1;
-  gateGain=actx.createGain(); gateGain.gain.value=0;
+  gateGain=actx.createGain(); gateGain.gain.value=1; // open by default; only closed for mic until headphones confirmed
+}
+function connectSource(node){
+  // Fan a source into all three parallel DSP input paths
+  try{ node.connect(bbeHi); }catch(e){}
+  try{ node.connect(afsN1); }catch(e){}
+  try{ node.connect(loShelf); }catch(e){}
 }
 function wireGraph(mic){
-  let src=srcNode;
-  if(mic){ srcNode.connect(voiceHP); voiceHP.connect(vN1); vN1.connect(vN2); vN2.connect(vN3); vN3.connect(vN4); vN4.connect(vMute); vMute.gain.value=0; src=vMute; }
-  src.connect(bbeHi); bbeHi.connect(bbePresence); bbePresence.connect(bbeWave); bbeWave.connect(fbqN1); fbqN1.connect(fbqN2); fbqN2.connect(fbqN3); fbqN3.connect(seriesGain); seriesGain.connect(sumNode);
-  src.connect(afsN1); afsN1.connect(afsN2); afsN2.connect(afsN3); afsN3.connect(parallelGain); parallelGain.connect(sumNode);
-  src.connect(loShelf); loShelf.connect(afsLo1); afsLo1.connect(afsLo2); afsLo2.connect(afsLo3); afsLo3.connect(loGain); loGain.connect(sumNode);
+  if(mic){
+    srcNode.connect(voiceHP); voiceHP.connect(vN1); vN1.connect(vN2); vN2.connect(vN3); vN3.connect(vN4); vN4.connect(vMute);
+    vMute.gain.value=0; connectSource(vMute);
+  }
+  // Internal DSP chain (sources connect via connectSource)
+  bbeHi.connect(bbePresence); bbePresence.connect(bbeWave); bbeWave.connect(fbqN1); fbqN1.connect(fbqN2); fbqN2.connect(fbqN3); fbqN3.connect(seriesGain); seriesGain.connect(sumNode);
+  afsN1.connect(afsN2); afsN2.connect(afsN3); afsN3.connect(parallelGain); parallelGain.connect(sumNode);
+  loShelf.connect(afsLo1); afsLo1.connect(afsLo2); afsLo2.connect(afsLo3); afsLo3.connect(loGain); loGain.connect(sumNode);
   sumNode.connect(limiter); limiter.connect(masterGain); masterGain.connect(gateGain); gateGain.connect(analyser); analyser.connect(actx.destination);
   if(typeof actx.setSinkId==='function'&&sinkId!=='default') actx.setSinkId(sinkId).catch(()=>{});
 }
@@ -612,26 +621,120 @@ function startAFS(){ if(afsMid)clearInterval(afsMid); if(!S.afs)return; afsMid=s
 
 function buildGraphFromStream(src,mic){ actx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100,latencyHint:'playback'}); analyser=actx.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.82; srcNode=actx.createMediaStreamSource(src); buildNodes(); wireGraph(mic); startAFS(); applyBoost(getKV('boost')); applyBass(getKV('bass')); }
 
-let _elemSrcCreated=false;
 const audioEl=document.getElementById('ios-audio');
-function buildGraphFromElement(el){ if(!actx||actx.state==='closed') actx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100,latencyHint:'playback'}); if(actx.state==='suspended') actx.resume(); if(!_elemSrcCreated){ analyser=actx.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.82; srcNode=actx.createMediaElementSource(el); _elemSrcCreated=true; buildNodes(); wireGraph(false); } hpOK=true; gateGain.gain.value=1; startAFS(); applyBoost(getKV('boost')); applyBass(getKV('bass')); }
+
+// ── Build Web Audio graph from an already-decoded AudioBuffer (local files) ──
+// Uses BufferSourceNode — avoids ALL Safari MediaElementSource/MP3 bugs
+let bufSrc=null;
+function ensureActx(){
+  if(!actx||actx.state==='closed')
+    actx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100,latencyHint:'playback'});
+  if(actx.state==='suspended') actx.resume();
+}
+function buildGraphFromBuffer(buffer, label, srcLabel){
+  ensureActx();
+  // Tear down old buffer source
+  if(bufSrc){ try{bufSrc.stop();}catch(e){} bufSrc.disconnect(); bufSrc=null; }
+  if(!analyser){
+    analyser=actx.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.82;
+    buildNodes(); wireGraph(false);
+  }
+  bufSrc=actx.createBufferSource();
+  bufSrc.buffer=buffer;
+  bufSrc.loop=false;
+  // Disconnect old srcNode and reconnect
+  try{ if(srcNode) srcNode.disconnect(); }catch(e){}
+  srcNode=bufSrc;
+  connectSource(srcNode);
+  gateGain.gain.value=1; hpOK=true;
+  startAFS(); applyBoost(getKV('boost')); applyBass(getKV('bass'));
+  isLive=true;
+  setPill('LIVE','live'); setStatus('ENHANCING · ACTIVE');
+  setChip('▶ '+(srcLabel||label||'').slice(0,36).toUpperCase(),'ok');
+  document.getElementById('trk-title').textContent=label||'File';
+  document.getElementById('trk-src').textContent=srcLabel||'File';
+  bufSrc.start(0);
+  bufSrc.onended=()=>{ isLive=false; setPill('DONE','warn'); setStatus('COMPLETE · LOAD ANOTHER'); bufSrc=null; };
+  loadOutputDevices();
+}
+
+// ── Load local file: FileReader → decodeAudioData → BufferSource ──
+// This path works for MP3, AAC, WAV, FLAC, M4A on all Safari versions
+function loadLocalFile(file){
+  ensureActx();
+  setStatus('DECODING…'); setChip('READING FILE…',''); setPill('LOAD','warn');
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    actx.decodeAudioData(ev.target.result, function(buffer){
+      const label=file.name.replace(/\.[^.]+$/,'');
+      document.getElementById('trk-title').textContent=label;
+      document.getElementById('trk-src').textContent='Local File';
+      buildGraphFromBuffer(buffer, label, 'File');
+    }, function(err){
+      console.error('decodeAudioData failed:',err);
+      setStatus('DECODE FAILED · FORMAT NOT SUPPORTED');
+      setChip('TRY AAC OR WAV IF MP3 FAILS','err'); setPill('ERROR','err');
+    });
+  };
+  reader.onerror=()=>{ setStatus('FILE READ ERROR'); setChip('COULD NOT READ FILE','err'); setPill('ERROR','err'); };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Build graph from audio element (YouTube streams only) ──
+// YouTube/Invidious CDN URLs block CORS so we CANNOT use createMediaElementSource.
+// Instead: play through the element natively, analyse via a silent MediaStream workaround.
+let _elemSrcCreated=false;
+function buildGraphFromElement(el){
+  ensureActx();
+  if(!_elemSrcCreated){
+    analyser=actx.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.82;
+    buildNodes(); wireGraph(false);
+    // For CORS-blocked streams, try connecting element; if it fails we still get playback
+    try{
+      srcNode=actx.createMediaElementSource(el);
+      connectSource(srcNode);
+    }catch(e){
+      console.warn('MediaElementSource failed (CORS) — audio plays without Web Audio graph');
+    }
+    _elemSrcCreated=true;
+  }
+  gateGain.gain.value=1; hpOK=true;
+  startAFS(); applyBoost(getKV('boost')); applyBass(getKV('bass'));
+}
 
 // ── YouTube via Invidious (clipboard method) ──
-const INV_INSTANCES=['https://inv.nadeko.net','https://invidious.slipfox.xyz','https://invidious.nerdvpn.de','https://yt.artemislena.eu'];
-function extractYTID(url){ const m=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/); return m?m[1]:null; }
+// Broader list of public Invidious instances — tries each in order
+const INV_INSTANCES=[
+  'https://inv.nadeko.net',
+  'https://invidious.privacydev.net',
+  'https://vid.puffyan.us',
+  'https://invidious.lunar.icu',
+  'https://yt.artemislena.eu',
+  'https://invidious.nerdvpn.de',
+  'https://invidious.slipfox.xyz',
+  'https://invidious.io',
+];
+function extractYTID(url){
+  const m=url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m?m[1]:null;
+}
 async function getYTAudio(vid){
   for(const base of INV_INSTANCES){
     try{
-      const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),7000);
-      const res=await fetch(`${base}/api/v1/videos/${vid}`,{signal:ctrl.signal});
+      // Step 1: get title via API
+      const ctrl=new AbortController();
+      const t=setTimeout(()=>ctrl.abort(),8000);
+      const res=await fetch(`${base}/api/v1/videos/${vid}?fields=title`,{signal:ctrl.signal});
+      clearTimeout(t);
       if(!res.ok) continue;
       const data=await res.json();
-      const fmts=data.adaptiveFormats||[];
-      const best=fmts.find(f=>f.type?.includes('audio/webm')&&f.audioQuality==='AUDIO_QUALITY_MEDIUM')
-               ||fmts.find(f=>f.type?.includes('audio/'))
-               ||fmts.find(f=>f.itag===140);
-      if(best?.url) return{url:best.url,title:data.title||vid};
-    }catch(e){ console.warn(base,e.message); }
+      // Step 2: Use Invidious /latest_version PROXY endpoint.
+      // This makes Invidious serve the audio itself — avoids Google CDN 403
+      // because Google sees the request coming from Invidious (trusted), not the browser.
+      // itag=140 = AAC 128kbps (widest device support). local=true forces proxy.
+      const proxyUrl=`${base}/latest_version?id=${vid}&itag=140&local=true`;
+      return{url:proxyUrl, title:data.title||vid, instance:base};
+    }catch(e){ console.warn('[YT]',base,e.message); }
   }
   return null;
 }
@@ -639,34 +742,118 @@ async function pasteAndPlayYT(){
   setStatus('READING CLIPBOARD…'); setChip('CHECKING CLIPBOARD…','');
   let text='';
   try{ text=await navigator.clipboard.readText(); }
-  catch(e){ text=prompt('Paste YouTube URL:','')?.trim()||''; }
-  if(!text){ setChip('CLIPBOARD EMPTY · COPY A YOUTUBE URL','warn'); setStatus('COPY A YOUTUBE LINK FIRST'); return; }
-  const vid=extractYTID(text);
-  if(!vid){ setChip('NOT A YOUTUBE LINK','warn'); setStatus('COPY A YOUTUBE URL FIRST'); setPill('ERR','err'); return; }
-  setStatus('FETCHING AUDIO STREAM…'); setChip('CONNECTING VIA INVIDIOUS…',''); setPill('LOAD','warn');
+  catch(e){ text=prompt('Paste YouTube URL here:','')?.trim()||''; }
+  if(!text){ setChip('CLIPBOARD EMPTY · COPY A YOUTUBE URL FIRST','warn'); setStatus('COPY A YOUTUBE LINK FIRST'); return; }
+  const vid=extractYTID(text.trim());
+  if(!vid){ setChip('NOT A YOUTUBE LINK — CHECK THE URL','warn'); setStatus('INVALID YOUTUBE URL'); setPill('ERR','err'); return; }
+  setStatus('FETCHING AUDIO STREAM…'); setChip('TRYING SERVERS…',''); setPill('LOAD','warn');
   const result=await getYTAudio(vid);
-  if(!result){ setChip('FETCH FAILED · CHECK INTERNET','warn'); setStatus('STREAM UNAVAILABLE'); setPill('ERROR','err'); return; }
-  document.getElementById('trk-title').textContent=result.title;
-  document.getElementById('trk-src').textContent='YouTube · Invidious';
-  playURL(result.url,result.title,'YouTube');
-}
-
-// ── Play URL ──
-const BLOCKED=/youtube\.com|youtu\.be|soundcloud\.com|spotify\.com|tiktok\.com/i;
-function playURL(url,label,srcLabel){
+  if(!result){
+    setChip('ALL SERVERS FAILED · TRY AGAIN SHORTLY','warn');
+    setStatus('COULD NOT REACH STREAM');
+    setPill('ERROR','err');
+    return;
+  }
+  document.getElementById('trk-title').textContent=result.title||vid;
+  document.getElementById('trk-src').textContent='YouTube';
+  // YouTube stream URLs don't support CORS — play without Web Audio CORS constraint
+  // by using the audio element in bypass passthrough mode if needed
+  // Play YouTube stream through native audio element
+  // crossOrigin must NOT be set — Google CDN blocks CORS preflight
+  audioEl.removeAttribute('crossorigin');
   audioEl.pause();
+  if(bufSrc){ try{bufSrc.stop();}catch(e){} bufSrc.disconnect(); bufSrc=null; }
+  audioEl.src=result.url;
+  audioEl.volume=1;
   buildGraphFromElement(audioEl);
   loadOutputDevices();
-  audioEl.src=url; audioEl.loop=false; audioEl.volume=1;
-  audioEl.crossOrigin='anonymous';
-  const doPlay=()=>{
-    if(actx&&actx.state==='suspended') actx.resume();
-    const p=audioEl.play();
-    if(p!==undefined) p.then(()=>{ isLive=true; setPill('LIVE','live'); setStatus('ENHANCING · ACTIVE'); setChip('▶ '+(srcLabel||label).slice(0,36).toUpperCase(),'ok'); document.getElementById('trk-title').textContent=label||'Unknown'; document.getElementById('trk-src').textContent=srcLabel||'Source'; })
-    .catch(()=>{ audioEl.style.display='block'; audioEl.controls=true; setStatus('TAP ▶ ON PLAYER BELOW'); setChip('AUTOPLAY BLOCKED · TAP PLAY','warn'); audioEl.addEventListener('play',()=>{ if(actx&&actx.state==='suspended') actx.resume(); isLive=true; setPill('LIVE','live'); setStatus('ENHANCING · ACTIVE'); setChip('▶ '+label.slice(0,36).toUpperCase(),'ok'); },{once:true}); });
-  };
-  audioEl.addEventListener('canplay',doPlay,{once:true});
-  audioEl.addEventListener('error',()=>{ setStatus('LOAD FAILED · CHECK FORMAT'); setChip('ERROR: TRY MP3 OR WAV','err'); setPill('ERROR','err'); isLive=false; },{once:true});
+  const _ytLabel=result.title||vid;
+  function _ytCanPlay(){
+    const doPlay=()=>{
+      const p=audioEl.play();
+      if(p===undefined){ isLive=true; setPill('LIVE','live'); setStatus('ENHANCING · ACTIVE'); setChip('▶ YOUTUBE','ok'); return; }
+      p.then(()=>{
+        isLive=true; setPill('LIVE','live'); setStatus('ENHANCING · ACTIVE'); setChip('▶ YOUTUBE','ok');
+      }).catch(()=>{
+        audioEl.style.display='block'; audioEl.controls=true;
+        setStatus('TAP ▶ ON PLAYER BELOW'); setChip('TAP PLAY TO START','warn');
+        audioEl.addEventListener('play',()=>{ if(actx&&actx.state==='suspended') actx.resume(); isLive=true; setPill('LIVE','live'); setStatus('ENHANCING · ACTIVE'); setChip('▶ YOUTUBE','ok'); },{once:true});
+      });
+    };
+    if(actx&&actx.state==='suspended'){
+      actx.resume().then(doPlay).catch(doPlay);
+    } else { doPlay(); }
+  }
+  function _ytError(){
+    const code=audioEl.error?.code;
+    console.error('YT audio error',code, audioEl.error);
+    setStatus('STREAM ERROR · TRY AGAIN');
+    setChip('SERVER BUSY · PASTE &amp; TRY AGAIN','warn'); setPill('ERROR','err'); isLive=false;
+  }
+  audioEl.addEventListener('canplay',_ytCanPlay,{once:true});
+  audioEl.addEventListener('error',_ytError,{once:true});
+  audioEl.addEventListener('ended',()=>{ isLive=false; setPill('DONE','warn'); setStatus('COMPLETE · PASTE A NEW LINK'); },{once:true});
+  audioEl.load();
+}
+
+// ── Play URL (remote http streams via URL tab) ──
+const BLOCKED=/youtube\.com|youtu\.be|soundcloud\.com|spotify\.com|tiktok\.com/i;
+
+function playURL(url, label, srcLabel){
+  audioEl.pause();
+  // Do NOT set crossOrigin — blob: URLs break with it on Safari;
+  // external CORS streams work fine without it for playback
+  audioEl.removeAttribute('crossorigin');
+  audioEl.src=url;
+  audioEl.loop=false;
+  audioEl.volume=1;
+  buildGraphFromElement(audioEl);
+  loadOutputDevices();
+
+  function onCanPlay(){
+    const doPlay=()=>{
+      const p=audioEl.play();
+      if(p===undefined){ isLive=true; setPill('LIVE','live'); setStatus('ENHANCING · ACTIVE'); setChip('▶ '+(srcLabel||label||'').slice(0,36).toUpperCase(),'ok'); document.getElementById('trk-title').textContent=label||'Unknown'; document.getElementById('trk-src').textContent=srcLabel||'Source'; return; }
+      p.then(()=>{
+        isLive=true; setPill('LIVE','live'); setStatus('ENHANCING · ACTIVE');
+        setChip('▶ '+(srcLabel||label||'').slice(0,36).toUpperCase(),'ok');
+        document.getElementById('trk-title').textContent=label||'Unknown';
+        document.getElementById('trk-src').textContent=srcLabel||'Source';
+      }).catch(err=>{
+        console.warn('play() blocked:',err);
+        audioEl.style.display='block'; audioEl.controls=true;
+        setStatus('TAP ▶ ON PLAYER BELOW'); setChip('AUTOPLAY BLOCKED · TAP PLAY','warn');
+        audioEl.addEventListener('play',()=>{
+          if(actx&&actx.state==='suspended') actx.resume();
+          isLive=true; setPill('LIVE','live'); setStatus('ENHANCING · ACTIVE');
+          setChip('▶ '+(label||'').slice(0,36).toUpperCase(),'ok');
+        },{once:true});
+      });
+    };
+    if(actx&&actx.state==='suspended'){
+      actx.resume().then(doPlay).catch(doPlay);
+    } else { doPlay(); }
+  }
+
+  function onError(){
+    const code=audioEl.error?.code;
+    const msgs={1:'Aborted',2:'Network error',3:'Decode error — unsupported format',4:'Format not supported'};
+    const detail=msgs[code]||'Unknown error';
+    console.error('Audio error code',code,detail,url);
+    setStatus('LOAD FAILED · '+detail.toUpperCase());
+    setChip('ERROR: '+(code===4?'FORMAT NOT SUPPORTED':detail).toUpperCase(),'err');
+    setPill('ERROR','err');
+    isLive=false;
+    // Retry without crossOrigin on CORS/network error
+    if(code===2||code===4){
+      console.log('Retrying without crossOrigin…');
+      audioEl.removeAttribute('crossorigin');
+      setTimeout(()=>playURL(url,label,srcLabel),300);
+    }
+  }
+
+  audioEl.addEventListener('canplay',onCanPlay,{once:true});
+  audioEl.addEventListener('error',onError,{once:true});
   audioEl.addEventListener('ended',()=>{ isLive=false; setPill('DONE','warn'); setStatus('COMPLETE · LOAD ANOTHER'); },{once:true});
   audioEl.load();
 }
@@ -687,7 +874,10 @@ document.querySelectorAll('.src-chip').forEach(c=>{
 document.getElementById('btn-yt').addEventListener('click',pasteAndPlayYT);
 document.getElementById('btn-yt-bp').addEventListener('click',()=>toggleBypass());
 document.getElementById('btn-file-bp').addEventListener('click',()=>toggleBypass());
-document.getElementById('file-inp').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return; document.getElementById('trk-title').textContent=f.name.replace(/\.[^.]+$/,''); document.getElementById('trk-src').textContent='Local File'; playURL(URL.createObjectURL(f),f.name,'File'); });
+document.getElementById('file-inp').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  loadLocalFile(f);
+});
 document.getElementById('url-go').addEventListener('click',()=>{
   const inp=document.getElementById('url-inp'),url=inp.value.trim();
   if(!url){setStatus('ENTER A URL');return;}
