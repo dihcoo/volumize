@@ -84,7 +84,7 @@
             </div>
             <div class="action-grid">
                 <label for="audio-upload" class="file-label">LOAD</label>
-                <input type="file" id="audio-upload" accept="audio/*, .mp3, .wav, .m4a, .aiff" multiple style="display:none">
+                <input type="file" id="audio-upload" accept="audio/*" multiple style="display:none">
                 <button id="btn-shuffle">SHFL</button>
                 <button id="btn-repeat">RPT</button>
                 <button id="btn-rec">REC</button>
@@ -96,12 +96,7 @@
         let audioCtx, analyser, sourceNode, loFilter, hiFilter, delayNode, delayGain;
         let isProcessing = true, isRecording = false, recordedChunks = [], mediaRecorder;
         let playlist = [], currentIndex = 0, isShuffle = false, isRepeat = false;
-        
-        // iOS FIX: Forcing inline playback to prevent Apple from hijacking the media
         const audioEl = new Audio();
-        audioEl.playsInline = true;
-        audioEl.preload = "auto";
-
         const canvas = document.getElementById('visualizerCanvas'), canvasCtx = canvas.getContext('2d');
         const bypassBtn = document.getElementById('btn-bypass'), statusText = document.getElementById('status-text');
         const playlistContainer = document.getElementById('playlist-container');
@@ -141,9 +136,7 @@
         function loadTrack(index) {
             if (playlist.length > 0) {
                 audioEl.src = URL.createObjectURL(playlist[index]);
-                // iOS BUG FIX: Force iOS to buffer the file before trying to process it through DSP
-                audioEl.load(); 
-                statusText.textContent = "READY: " + playlist[index].name.substring(0, 15).toUpperCase();
+                statusText.textContent = playlist[index].name.substring(0, 20).toUpperCase();
                 updatePlaylistUI();
             }
         }
@@ -176,9 +169,7 @@
             unlockAudio(); 
             if(audioEl.src) {
                 if(audioEl.paused) {
-                    audioEl.play().catch(e => {
-                        alert("iOS Playback Blocked. Try tapping the screen again, then hit play.");
-                    });
+                    audioEl.play();
                 } else {
                     audioEl.pause();
                 }
