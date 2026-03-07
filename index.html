@@ -103,7 +103,7 @@
 
     <div id="video-modal" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10; flex-direction:column; align-items:center; justify-content:center;">
         <h2 style="color: var(--neon); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 15px;">Playback Room</h2>
-        <video id="playback-screen" controls style="width: 220px; height: 220px; border: 2px solid var(--neon); border-radius: 50%; box-shadow: 0 0 30px rgba(0,255,204,0.3); background: #000;"></video>
+        <video id="playback-screen" controls playsinline style="width: 220px; height: 220px; border: 2px solid var(--neon); border-radius: 50%; box-shadow: 0 0 30px rgba(0,255,204,0.3); background: #000;"></video>
         <div style="display: flex; gap: 10px; margin-top: 25px;">
             <button id="btn-close-video" style="width: 100px;">CLOSE</button>
             <button id="btn-download-video" class="toggle-on" style="width: 100px;">SAVE</button>
@@ -162,7 +162,17 @@ async function ensureAudio() {
         const canvasStream = canvas.captureStream(30); 
         const combinedStream = new MediaStream([...canvasStream.getTracks(), ...dest.stream.getAudioTracks()]);
 
-        mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+        // Setup Video Recorder (Smart Codec Selection for iOS)
+        let mimeType = 'video/webm'; // Default for Android/Desktop
+        if (MediaRecorder.isTypeSupported('video/mp4')) {
+            mimeType = 'video/mp4';  // iOS/Safari preferred
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+            mimeType = 'video/webm;codecs=vp8,opus';
+        }
+
+        mediaRecorder = new MediaRecorder(combinedStream, { mimeType: mimeType });
+        mediaRecorder.recordingMimeType = mimeType; // Save for playback later
+        
         mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
         mediaRecorder.onstop = showVideoPlayback;
 
@@ -260,7 +270,9 @@ document.getElementById('btn-rec').onclick = function() {
 };
 
 function showVideoPlayback() {
-    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    // Use the exact mime type we recorded in, instead of hardcoding webm
+    const mimeType = mediaRecorder.recordingMimeType || 'video/webm';
+    const blob = new Blob(recordedChunks, { type: mimeType });
     const videoURL = URL.createObjectURL(blob);
     
     const videoEl = document.getElementById('playback-screen');
@@ -277,9 +289,10 @@ function showVideoPlayback() {
     };
 
     document.getElementById('btn-download-video').onclick = () => {
+        const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
         const a = document.createElement('a'); 
         a.href = videoURL; 
-        a.download = 'Impact_Visualizer_Mix.webm'; 
+        a.download = `Impact_Visualizer_Mix.${extension}`; 
         a.click();
     };
 }
