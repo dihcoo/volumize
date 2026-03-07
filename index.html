@@ -8,7 +8,21 @@
         :root { --neon: #00ffcc; --bg: #0a0a0a; --panel: #141414; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: #fff; font-family: -apple-system, sans-serif; margin: 0; display: flex; justify-content: center; height: 100vh; width: 100vw; overflow: hidden; }
-        .app-container { background: var(--panel); width: 100%; height: 100%; display: flex; flex-direction: column; }
+        .app-container { background: var(--panel); width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; }
+        
+        /* Intro Screen Styles */
+        #intro-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 10, 0.98); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 20px; text-align: center; transition: opacity 0.5s ease;
+        }
+        .intro-content { max-width: 350px; background: #0d0d0d; padding: 30px; border: 1px solid #222; border-radius: 12px; box-shadow: 0 0 30px rgba(0,255,204,0.1); }
+        .intro-title { color: var(--neon); font-size: 1.2rem; letter-spacing: 3px; margin-bottom: 20px; text-transform: uppercase; font-weight: bold; }
+        .intro-text { font-size: 10px; line-height: 1.8; color: #aaa; margin-bottom: 30px; letter-spacing: 1px; text-align: left; }
+        .intro-text span { color: var(--neon); font-weight: bold; }
+        #btn-enter { font-size: 12px; padding: 15px 40px; width: 100%; letter-spacing: 2px; }
+
         .top-header { padding: 12px; background: #000; border-bottom: 2px solid var(--neon); text-align: center; flex-shrink: 0; }
         .top-header h1 { margin: 0; font-size: 1rem; letter-spacing: 3px; text-transform: uppercase; }
         .main-interface { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; overflow: hidden; }
@@ -40,8 +54,23 @@
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
     </style>
 </head>
-<body onclick="unlockAudio()" ontouchstart="unlockAudio()">
+<body>
+
 <div class="app-container">
+
+    <div id="intro-screen">
+        <div class="intro-content">
+            <div class="intro-title">Depth<br>Impact Hybrid</div>
+            <div class="intro-text">
+                • <span>LOAD</span> your audio files (.mp3, .wav) to build a multi-track playlist.<br><br>
+                • <span>SHAPE</span> your sound using live DSP filters for Clarity, Contour, and Depth.<br><br>
+                • <span>WATCH</span> the 3D globe and dancers react instantly to your music's frequencies.<br><br>
+                • <span>RECORD</span> your processed audio mix and the visualizer to a playable video file.
+            </div>
+            <button id="btn-enter" class="toggle-on">ENTER APP</button>
+        </div>
+    </div>
+
     <div class="top-header"><h1>DEPTH<span>IMPACT</span> HYBRID</h1></div>
     <div class="main-interface">
         <div class="globe-wrapper">
@@ -71,10 +100,20 @@
             <button id="btn-rec">REC</button>
         </div>
     </div>
+
+    <div id="video-modal" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:10; flex-direction:column; align-items:center; justify-content:center;">
+        <h2 style="color: var(--neon); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 15px;">Playback Room</h2>
+        <video id="playback-screen" controls style="width: 220px; height: 220px; border: 2px solid var(--neon); border-radius: 50%; box-shadow: 0 0 30px rgba(0,255,204,0.3); background: #000;"></video>
+        <div style="display: flex; gap: 10px; margin-top: 25px;">
+            <button id="btn-close-video" style="width: 100px;">CLOSE</button>
+            <button id="btn-download-video" class="toggle-on" style="width: 100px;">SAVE</button>
+        </div>
+    </div>
 </div>
+
 <script>
 // ═══════════════════════════════════════════════════════
-//  AUDIO ENGINE
+//  AUDIO & VIDEO RECORDING ENGINE
 // ═══════════════════════════════════════════════════════
 let audioCtx, analyser, sourceNode, loFilter, hiFilter, delayNode, delayGain;
 let isProcessing = true, isRecording = false, recordedChunks = [], mediaRecorder;
@@ -90,23 +129,43 @@ const bypassBtn = document.getElementById('btn-bypass');
 const statusText = document.getElementById('status-text');
 const playlistContainer = document.getElementById('playlist-container');
 
-function unlockAudio() {
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-}
+// Intro Screen Logic & Audio Unlock
+document.getElementById('btn-enter').addEventListener('click', async () => {
+    const introScreen = document.getElementById('intro-screen');
+    introScreen.style.opacity = '0';
+    setTimeout(() => { introScreen.style.display = 'none'; }, 500); // Fade out effect
+    
+    // Unlock Audio Context immediately on interaction
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+    }
+});
 
 async function ensureAudio() {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    // Check if graph is already built to prevent duplicating nodes
+    if (!analyser) {
         analyser  = audioCtx.createAnalyser(); analyser.fftSize = 256;
         sourceNode = audioCtx.createMediaElementSource(audioEl);
         loFilter  = audioCtx.createBiquadFilter(); loFilter.type  = 'lowshelf';  loFilter.frequency.value = 150;  loFilter.gain.value = 0;
         hiFilter  = audioCtx.createBiquadFilter(); hiFilter.type  = 'highshelf'; hiFilter.frequency.value = 3000; hiFilter.gain.value = 0;
         delayNode = audioCtx.createDelay();         delayNode.delayTime.value = 0.05;
         delayGain = audioCtx.createGain();          delayGain.gain.value = 0;
+        
         const dest = audioCtx.createMediaStreamDestination();
-        mediaRecorder = new MediaRecorder(dest.stream);
-        mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-        mediaRecorder.onstop = saveRecording;
+        const canvasStream = canvas.captureStream(30); 
+        const combinedStream = new MediaStream([...canvasStream.getTracks(), ...dest.stream.getAudioTracks()]);
+
+        mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = showVideoPlayback;
+
         sourceNode.connect(loFilter); loFilter.connect(hiFilter); hiFilter.connect(analyser);
         hiFilter.connect(delayNode); delayNode.connect(delayGain); delayGain.connect(analyser);
         analyser.connect(audioCtx.destination); analyser.connect(dest);
@@ -188,17 +247,45 @@ document.getElementById('depth').oninput   = e => { if (delayGain) delayGain.gai
 document.getElementById('contour').oninput = e => { if (loFilter)  loFilter.gain.value  = (e.target.value / 100) * 25; };
 
 document.getElementById('btn-rec').onclick = function() {
-    if (!isRecording) { recordedChunks = []; mediaRecorder.start(); isRecording = true; this.classList.add('recording'); }
-    else              { mediaRecorder.stop(); isRecording = false; this.classList.remove('recording'); }
+    if (!isRecording) { 
+        recordedChunks = []; 
+        mediaRecorder.start(); 
+        isRecording = true; 
+        this.classList.add('recording'); 
+    } else { 
+        mediaRecorder.stop(); 
+        isRecording = false; 
+        this.classList.remove('recording'); 
+    }
 };
 
-function saveRecording() {
-    const blob = new Blob(recordedChunks, { type: 'audio/mpeg' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Impact_Mix.mp3'; a.click();
+function showVideoPlayback() {
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const videoURL = URL.createObjectURL(blob);
+    
+    const videoEl = document.getElementById('playback-screen');
+    const modal = document.getElementById('video-modal');
+    
+    videoEl.src = videoURL;
+    modal.style.display = 'flex';
+
+    document.getElementById('btn-close-video').onclick = () => {
+        videoEl.pause();
+        videoEl.src = "";
+        modal.style.display = 'none';
+        URL.revokeObjectURL(videoURL);
+    };
+
+    document.getElementById('btn-download-video').onclick = () => {
+        const a = document.createElement('a'); 
+        a.href = videoURL; 
+        a.download = 'Impact_Visualizer_Mix.webm'; 
+        a.click();
+    };
 }
 
 // ═══════════════════════════════════════════════════════
-//  VISUAL ENGINE
+//  VISUAL ENGINE (Dancers, Globe, Stars)
 // ═══════════════════════════════════════════════════════
 let bgStars = [], latticePoints = [], dancers = [];
 const GLOBE_R = 100;
@@ -398,5 +485,6 @@ function draw() {
 initGlobe();
 draw();
 </script>
+
 </body>
 </html>
